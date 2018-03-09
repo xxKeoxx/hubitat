@@ -1,7 +1,7 @@
 #!/bin/bash
 
 GROUPDIR="/Users/jlrosiak/HAM/hue/groups"
-BASEURL="http://10.0.1.2/api/43594f081bb6d23e9ccd254927fa47"
+BASEURL="http://10.0.1.2/api/[add api user here]"
 
 LIGHTNAME="Outside_MBR"
 BULBID=`curl -s ${BASEURL}/lights/ | /usr/local/bin/jq -r -e --arg LIGHTNAME "${LIGHTNAME}" '. as $object | keys[] | select($object[.].name == $LIGHTNAME)'`
