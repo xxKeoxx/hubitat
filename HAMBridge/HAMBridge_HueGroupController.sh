@@ -42,7 +42,7 @@ else
         GROUPSTATE=`curl -s ${BASEURL}/groups/${GROUPID}/ | jq -r -e .state.all_on`
 fi
 
-echo ${GROUPSTATE} >> /Users/jlrosiak/HAM/hueGroupController.log
+echo ${GROUPSTATE} >> /var/log/HAM/hueGroupController.log
 
 if [[ ! `echo ${TOGGLEMODE} | grep PARAM` ]]; then
         case ${TOGGLEMODE} in
