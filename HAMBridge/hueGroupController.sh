@@ -26,7 +26,7 @@ if [ ! -d ${GROUPDIR} ]; then
 	mkdir -p ${GROUPDIR}
 fi
 
-if [[ -n $1 ]] && [[ $1 != "--help" ]]; then
+if [[ -n $1 ]]; then
 	ROOMNAME=$1
 else
 	ROOMNAME=[[PARAM1]]
