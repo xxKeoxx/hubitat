@@ -1,7 +1,7 @@
 /**
- *  KuKu Harmony - Virtual Switch for Logitech Harmony
+ *  Hubitat Harmony - Virtual Switch for Logitech Harmony
  *
- *  Copyright 2017 KuKu <turlvo@gmail.com>
+ *  Copyright 2017 Hubitat <turlvo@gmail.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,46 +18,25 @@
  *
  *  Version history
  */
-def version() {	return "v1.6.501" }
-/*
- *	03/28/2017 >>> v1.0.000 - Release first KuKu Harmony supports only on/off command for each device
- *  04/13/2017 >>> v1.3.000 - Added Aircon, Fan, Roboking device type
- *  04/14/2017 >>> v1.4.000 - Added TV device type
- *  04/21/2017 >>> v1.4.100 - changed DTH's default state to 'Off'
- *  04/21/2017 >>> v1.4.150 - update on/off state routine and slide
- *  04/22/2017 >>> v1.4.170 - changed 'addDevice' page's refreshInterval routine and change all device's power on/off routine
- *  04/22/2017 >>> v1.4.181 - changed routine of discovering hub and added checking hub's state
- *  05/16/2017 >>> v1.5.000 - support multiple Harmony hubs
- *  05/19/2017 >>> v1.5.002 - fixed 'STB' device type crash bug and changed refresh interval
- *  05/22/2017 >>> v1.5.102 - added routine of synchronizing device status through plug's power monitoring
- *  07/09/2017 >>> v1.5.103 - changed child app to use parent Harmony API server IP address
- *  07/29/2017 >>> v1.5.104 - fixed duplicated custom command 
- *  08/30/2017 >>> v1.6.000 - added Harmony API server's IP changing menu and contact sensor's monitoring at Aircon Type
- *  09/03/2017 >>> v1.6.001 - hot fix - not be changed by IP chaning menu
- *  09/04/2017 >>> v1.6.002 - hot fix - 'Power Meter' subscription is not called In the case of other devices except the air conditioner
- *  09/18/2017 >>> v1.6.500 - added Contact Sensor's monitoring mode and changed version expression
- *  09/18/2017 >>> v1.6.501 - added 'Number 0' command at TV Type DTH
-*/
+def version() {	return "v1.0.0" }
 
 definition(
-    name: "KuKu Harmony Device",
-	namespace: "turlvo",
-	author: "KuKu",
-	description: "This is a SmartApp that support to control Harmony's device!",
+	name: "Hubitat Harmony Device",
+	namespace: "Hubitat",
+	author: "Keo",
+	description: "This is a child app to control Harmony's devices!",
 	category: "Convenience",
-	parent: "turlvo:KuKu Harmony",
+	parent: "Hubitat:Hubitat Harmony",
 	singleInstance: true,
-	iconUrl: "https://cdn.rawgit.com/turlvo/KuKuHarmony/master/images/icon/KuKu_Harmony_Icon_1x.png",
-	iconX2Url: "https://cdn.rawgit.com/turlvo/KuKuHarmony/master/images/icon/KuKu_Harmony_Icon_2x.png",
-	iconX3Url: "https://cdn.rawgit.com/turlvo/KuKuHarmony/master/images/icon/KuKu_Harmony_Icon_3x.png")
+	iconUrl: "https://cdn.rawgit.com/turlvo/HubitatHarmony/master/images/icon/Hubitat_Harmony_Icon_1x.png",
+	iconX2Url: "https://cdn.rawgit.com/turlvo/HubitatHarmony/master/images/icon/Hubitat_Harmony_Icon_2x.png",
+	iconX3Url: "https://cdn.rawgit.com/turlvo/HubitatHarmony/master/images/icon/Hubitat_Harmony_Icon_3x.png")
 
 preferences {
 	page(name: "parentOrChildPage")
-    
-    page(name: "mainPage")
-    page(name: "installPage")
-    page(name: "mainChildPage")
-    
+	page(name: "mainPage")
+	page(name: "installPage")
+	page(name: "mainChildPage")
 }
 
 // ------------------------------
@@ -97,10 +76,10 @@ def mainPage() {
             }
 
             section("") {
-                app( name: "harmonyDevices", title: "Add a device...", appName: "KuKu Harmony", namespace: "turlvo", multiple: true, uninstall: false)
+                app( name: "harmonyDevices", title: "Add a device...", appName: "Hubitat Harmony", namespace: "Hubitat", multiple: true, uninstall: false)
             }
 
-            section("KuKu Harmony Version :") {
+            section("Hubitat Harmony Version :") {
                 paragraph "${version()}"
             }
         }
@@ -510,7 +489,7 @@ def initializeChild(devicetype) {
     def deviceId = device.id
     def existing = getChildDevice(deviceId)
     if (!existing) {
-        def childDevice = addChildDevice("turlvo", "KuKu Harmony_${atomicState.selectedDeviceType}", deviceId, null, ["label": device.label])
+        def childDevice = addChildDevice("turlvo", "Hubitat Harmony_${atomicState.selectedDeviceType}", deviceId, null, ["label": device.label])
     } else {
         log.debug "Device already created"
     }
