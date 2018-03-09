@@ -1,0 +1,9 @@
+#!/bin/bash
+
+GROUPDIR="/Users/jlrosiak/HAM/hue/groups"
+BASEURL="http://10.0.1.2/api/43594f081bb6d23e9ccd254927fa47"
+
+LIGHTNAME="Outside_MBR"
+BULBID=`curl -s ${BASEURL}/lights/ | /usr/local/bin/jq -r -e --arg LIGHTNAME "${LIGHTNAME}" '. as $object | keys[] | select($object[.].name == $LIGHTNAME)'`
+#curl -s ${BASEURL}/lights/1 -X PUT -d"{\"on\":true,\"bri\":254,\"hue\":13548,\"sat\":200,\"transitiontime\":50}"
+curl -s ${BASEURL}/lights/${BULBID} -X PUT -d"{\"on\":${TOGGLEMODE},\"bri\":254,\"hue\":13548,\"sat\":200,\"transitiontime\":50}"
