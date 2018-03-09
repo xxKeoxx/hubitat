@@ -1,6 +1,5 @@
 #!/bin/bash
 
-GROUPDIR="/Users/jlrosiak/HAM/hue/groups"
 BASEURL="http://10.0.1.2/api/[add api user here]"
 
 LIGHTNAME="Outside_MBR"
