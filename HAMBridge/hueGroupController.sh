@@ -1,8 +1,5 @@
 #!/bin/bash
 
-GROUPDIR="/Users/jlrosiak/HAM/hue/groups"
-#GROUPID=0
-#RETVAL=0
 BASEURL="http://10.0.1.2/api/43594f081bb6d23e9ccd254927fa47"
 
 function get_scene_id {
