@@ -46,9 +46,9 @@ fi
 
 ROOMNAME=`echo $ROOMNAME | sed -e 's/_/ /g'`
 SCENENAME=`echo ${SCENENAME} | sed -e 's/_/ /g'`
-echo "ROOMNAME = ${ROOMNAME}" #>> /Users/jlrosiak/HAM/hueGroupController.log
-echo "TOGGLEMODE = ${TOGGLEMODE}" #>> /Users/jlrosiak/HAM/hueGroupController.log
-echo "SCENENAME = ${SCENENAME}" #>> /Users/jlrosiak/HAM/hueGroupController.log
+echo "ROOMNAME = ${ROOMNAME}"
+echo "TOGGLEMODE = ${TOGGLEMODE}"
+echo "SCENENAME = ${SCENENAME}"
 
 if [[ -n ${ROOMNAME} ]] && [[ ! `echo ${ROOMNAME} | grep PARAM` ]]; then
         GROUPID=`curl -s ${BASEURL}/groups/ | /usr/local/bin/jq -r -e --arg ROOMNAME "${ROOMNAME}" '. as $object | keys[] | select($object[.].name == $ROOMNAME )'`
