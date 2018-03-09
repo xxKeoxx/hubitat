@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEURL="http://10.0.1.2/api/43594f081bb6d23e9ccd254927fa47"
+BASEURL="http://[add your hue hub ip here]/api/[add your whitelist user]"
 
 function get_scene_id {
     if [[ "${GROUPSTATE}" == "${TOGGLEMODE}" ]]; then
