@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEURL="http://10.0.1.2/api/[add api user here]"
+BASEURL="http://[add your hue hub ip here]/api/[add your whitelist user]"
 
 LIGHTNAME="Outside_MBR"
 BULBID=`curl -s ${BASEURL}/lights/ | /usr/local/bin/jq -r -e --arg LIGHTNAME "${LIGHTNAME}" '. as $object | keys[] | select($object[.].name == $LIGHTNAME)'`
