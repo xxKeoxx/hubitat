@@ -1,5 +1,7 @@
 /**
- *  Hubitat Harmony Device - Virtual Switch for Logitech Harmony
+ *  KuKu Harmony - Virtual Switch for Logitech Harmony
+ *
+ *  Copyright 2017 KuKu <turlvo@gmail.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,34 +18,46 @@
  *
  *  Version history
  */
-def version() { return "v1.0.0" }
+def version() {	return "v1.6.501" }
 /*
- * 03/09/2018
- * This is a port from Hubitat Harmony to Hubitat.  Almost all of the code is the same ecept the changes from graphapi to hubitat
- * Hubitat didn't like how the code was written for dynamic child/parent apps, so a child app called Hubitat Harmony Device was created.
- * Special thanks to mattw for his assistance in debuging this port
- * https://community.hubitat.com/t/verbos-logging-help-with-kuku-harmony-port/821/16
- *
- * Hibitat Harmony Device needs to be installed on Hubitat as well.
+ *	03/28/2017 >>> v1.0.000 - Release first KuKu Harmony supports only on/off command for each device
+ *  04/13/2017 >>> v1.3.000 - Added Aircon, Fan, Roboking device type
+ *  04/14/2017 >>> v1.4.000 - Added TV device type
+ *  04/21/2017 >>> v1.4.100 - changed DTH's default state to 'Off'
+ *  04/21/2017 >>> v1.4.150 - update on/off state routine and slide
+ *  04/22/2017 >>> v1.4.170 - changed 'addDevice' page's refreshInterval routine and change all device's power on/off routine
+ *  04/22/2017 >>> v1.4.181 - changed routine of discovering hub and added checking hub's state
+ *  05/16/2017 >>> v1.5.000 - support multiple Harmony hubs
+ *  05/19/2017 >>> v1.5.002 - fixed 'STB' device type crash bug and changed refresh interval
+ *  05/22/2017 >>> v1.5.102 - added routine of synchronizing device status through plug's power monitoring
+ *  07/09/2017 >>> v1.5.103 - changed child app to use parent Harmony API server IP address
+ *  07/29/2017 >>> v1.5.104 - fixed duplicated custom command 
+ *  08/30/2017 >>> v1.6.000 - added Harmony API server's IP changing menu and contact sensor's monitoring at Aircon Type
+ *  09/03/2017 >>> v1.6.001 - hot fix - not be changed by IP chaning menu
+ *  09/04/2017 >>> v1.6.002 - hot fix - 'Power Meter' subscription is not called In the case of other devices except the air conditioner
+ *  09/18/2017 >>> v1.6.500 - added Contact Sensor's monitoring mode and changed version expression
+ *  09/18/2017 >>> v1.6.501 - added 'Number 0' command at TV Type DTH
 */
 
 definition(
-    name: "Hubitat Harmony Device",
-    namespace: "keo",
-    author: "Hubitat",
-    description: "This is a SmartApp that support to control Harmony's device!",
-    category: "Convenience",
-    parent: "keo:Hubitat Harmony",
-    singleInstance: true,
-    //iconUrl: "https://cdn.rawgit.com/keo/HubitatHarmony/master/images/icon/Hubitat_Harmony_Icon_1x.png",
-    //iconX2Url: "https://cdn.rawgit.com/keo/HubitatHarmony/master/images/icon/Hubitat_Harmony_Icon_2x.png",
-    //iconX3Url: "https://cdn.rawgit.com/keo/HubitatHarmony/master/images/icon/Hubitat_Harmony_Icon_3x.png")
+    name: "KuKu Harmony Device",
+	namespace: "turlvo",
+	author: "KuKu",
+	description: "This is a SmartApp that support to control Harmony's device!",
+	category: "Convenience",
+	parent: "turlvo:KuKu Harmony",
+	singleInstance: true,
+	iconUrl: "https://cdn.rawgit.com/turlvo/KuKuHarmony/master/images/icon/KuKu_Harmony_Icon_1x.png",
+	iconX2Url: "https://cdn.rawgit.com/turlvo/KuKuHarmony/master/images/icon/KuKu_Harmony_Icon_2x.png",
+	iconX3Url: "https://cdn.rawgit.com/turlvo/KuKuHarmony/master/images/icon/KuKu_Harmony_Icon_3x.png")
 
 preferences {
-    page(name: "parentOrChildPage")   
+	page(name: "parentOrChildPage")
+    
     page(name: "mainPage")
     page(name: "installPage")
-    page(name: "mainChildPage")   
+    page(name: "mainChildPage")
+    
 }
 
 // ------------------------------
@@ -56,21 +70,16 @@ preferences {
 // mainPage
 // seperated two danymic page by 'isInstalled' value 
 def mainPage() {
-    log.debug "Line 71: Main Page"
     if (!atomicState?.isInstalled) {
         return installPage()
     } else {
     	def interval
-        log.debug "Line 77: Running discoverHubs."
     	discoverHubs(atomicState.harmonyApiServerIP)
         if (atomicState.discoverdHubs) {
-            log.debug "Line 78: atomicState = ${atomicState.discoverdHubs}"
             interval = 15
         } else {
-            log.debug "Line 81: Interval = 3"
             interval = 3
         }
-        log.debug "Line 83+: dynamic main page"
         return dynamicPage(name: "mainPage", title: "", uninstall: true, refreshInterval: interval) {
             //getHubStatus()            
             section("Harmony-API Server IP Address :") {
@@ -78,25 +87,20 @@ def mainPage() {
             }
             
             section("Harmony Hub List :") {
-                log.debug "Line 89+: Harmony Hub List"
             	if (atomicState.discoverdHubs) {
                 	atomicState.discoverdHubs.each {
-                        log.debug "Line 95: discoverHubs"
                     	paragraph "$it"
                     }                
                 } else {
             		paragraph "None"
                 }
             }
-	    //log.debug "Line 102: Harmony Devices"
-            section("Harmony Devices") {
-                log.debug "Line 104: harmony Devices"
-                app( name: "harmonyDevices", title: "Add a device...", appName: "Hubitat Harmony", namespace: "keo", multiple: true, uninstall: false)
-                //app( name: "harmonyDevices", title: "Add a device...", appName: "Hubitat Harmony Device", namespace: "keo", multiple: true, uninstall: false)
+
+            section("") {
+                app( name: "harmonyDevices", title: "Add a device...", appName: "KuKu Harmony", namespace: "turlvo", multiple: true, uninstall: false)
             }
 
-            section("Hubitat Harmony Version :") {
-                log.debug "Line 107: Hubitat Harmony Version"
+            section("KuKu Harmony Version :") {
                 paragraph "${version()}"
             }
         }
@@ -104,7 +108,6 @@ def mainPage() {
 }
 
 def installPage() {
-    log.debug "Line 115: installPage"
 	dynamicPage(name: "installPage", title: "", install: !atomicState.isInstalled) {
             section("Enter the Harmony-API Server IP address :") {
        	       input name: "harmonyHubIP", type: "text", required: true, title: "IP address?", submitOnChange: true
@@ -117,21 +120,18 @@ def installPage() {
 }
 
 def initializeParent() {
-    log.debug "Line 127: Init Parent"
     atomicState.isInstalled = true
     atomicState.harmonyApiServerIP = harmonyHubIP
     atomicState.hubStatus = "online"
 }
 
 def getHarmonyApiServerIP() {
-    log.debug "Line 134: get Harmony API Server IP"
 	return atomicState.harmonyApiServerIP
 }
 
 // ------------------------------
 // Pages realted to Child App
 def mainChildPage() {
-    log.debug "Line 141: mainChildPage"
     def interval
     if (atomicState.discoverdHubs && atomicState.deviceCommands && atomicState.device) {
         interval = 15
@@ -139,10 +139,10 @@ def mainChildPage() {
         interval = 3
     }
     return dynamicPage(name: "mainChildPage", title: "Add Device", refreshInterval: interval, uninstall: true, install: true) {    	
-        log.debug "Line 141: mainChildPage>> parent's atomicState.harmonyApiServerIP: ${parent.getHarmonyApiServerIP()}"
+        log.debug "mainChildPage>> parent's atomicState.harmonyApiServerIP: ${parent.getHarmonyApiServerIP()}"
         atomicState.harmonyApiServerIP = parent.getHarmonyApiServerIP()
         
-        log.debug "Line 144: installHubPage>> $atomicState.discoverdHubs"        
+        log.debug "installHubPage>> $atomicState.discoverdHubs"        
         if (atomicState.discoverdHubs == null) {
             discoverHubs(atomicState.harmonyApiServerIP)
             section() {            
@@ -152,7 +152,7 @@ def mainChildPage() {
             section("Hub :") {                
                 //def hubs = getHubs(harmonyHubIP)                    
                 input name: "selectHub", type: "enum", title: "Select Hub", options: atomicState.discoverdHubs, submitOnChange: true, required: true
-                log.debug "Line 154: mainChildPage>> selectHub: $selectHub"
+                log.debug "mainChildPage>> selectHub: $selectHub"
                 if (selectHub) {
                     discoverDevices(selectHub)
                     atomicState.hub = selectHub
@@ -161,7 +161,6 @@ def mainChildPage() {
         }    
 
         def foundDevices = getHubDevices()
-        log.debug "Line 172: getHubDevices"
         if (atomicState.hub && foundDevices) {
             section("Device :") {                
                 def labelOfDevice = getLabelsOfDevices(foundDevices)
@@ -173,16 +172,15 @@ def mainChildPage() {
             }
 
             if (selectedDevice) {
-                log.debug "Line 184: selectedDevices"
                 section("Device Type :") {
                     def deviceType = ["Default", "Aircon", "TV", "Roboking", "Fan"]
                     input name: "selectedDeviceType", type: "enum", title: "Select Device Type", multiple: false, options: deviceType, submitOnChange: true, required: true                    
                 }
-            }
+            }  
+
 
             atomicState.deviceCommands = getCommandsOfDevice()
-            if (selectedDeviceType && atomicState.deviceCommands) {
-                log.debug "Line 193: selectedDeviceType"
+            if (selectedDeviceType && atomicState.deviceCommands) {    
                 atomicState.selectedDeviceType = selectedDeviceType
                 switch (selectedDeviceType) {
                     case "Aircon":
@@ -201,11 +199,11 @@ def mainChildPage() {
                     addFanDevice()
                     break
                     default:
-                        log.debug "Line 201: selectedDeviceType>> default"
+                        log.debug "selectedDeviceType>> default"
                     addDefaultDevice()
                 }
             } else if (selectedDeviceType && atomicState.deviceCommands == null) {
-                log.debug "Line 205: addDevice()>> selectedDevice: $selectedDevice, commands : $commands"
+                // log.debug "addDevice()>> selectedDevice: $selectedDevice, commands : $commands"
                 section("") {
                     paragraph "Loading selected device's command.  This can take a few seconds. Please wait..."
                 }
@@ -220,12 +218,10 @@ def mainChildPage() {
 
 // Add device page for Default On/Off device
 def addDefaultDevice() {
-    log.debug "Line 231: addDefaultDevices"
     def labelOfCommand = getLabelsOfCommands(atomicState.deviceCommands)
     state.selectedCommands = [:]    
 
-    section("Commands :") {
-        log.debug "Line 236: Commands"
+    section("Commands :") {            
         input name: "selectedPowerOn", type: "enum", title: "Power On", options: labelOfCommand, submitOnChange: true, multiple: false, required: true
         input name: "selectedPowerOff", type: "enum", title: "Power Off", options: labelOfCommand, submitOnChange: true, multiple: false, required: true
     }
@@ -237,7 +233,6 @@ def addDefaultDevice() {
 
 // Add device page for Fan device
 def addFanDevice() {
-    log.debug "Line 248: addFanDevice"
     def labelOfCommand = getLabelsOfCommands(atomicState.deviceCommands)
     state.selectedCommands = [:]  
 
@@ -271,7 +266,6 @@ def addFanDevice() {
 
 // Add device page for Aircon
 def addAirconDevice() {
-    log.debug "Line 282: addAirconDevice"
     def labelOfCommand = getLabelsOfCommands(atomicState.deviceCommands)
     state.selectedCommands = [:]    
 
@@ -310,7 +304,6 @@ def addAirconDevice() {
 
 // Add device page for TV
 def addTvDeviceTV() {
-    log.debug "Line 321: addTvDevice"
     def labelOfCommand = getLabelsOfCommands(atomicState.deviceCommands)
     state.selectedCommands = [:]    
 
@@ -357,7 +350,6 @@ def addTvDeviceTV() {
 
 // Add device page for Aircon
 def addRobokingDevice() {
-    log.debug "Line 368: addRobokingDevice"
     def labelOfCommand = getLabelsOfCommands(atomicState.deviceCommands)
     state.selectedCommands = [:]    
 
@@ -400,7 +392,6 @@ def addRobokingDevice() {
 // ------------------------------------
 // Monitoring sub menu
 def monitorMenu() {
-    log.debug "Line 411: monitorMenu"
     section("State Monitor :") {
         paragraph "It is a function to complement IrDA's biggest drawback. Through sensor's state, synchronize deivce status."
         def monitorType = ["Power Meter", "Contact"]
@@ -421,7 +412,6 @@ def monitorMenu() {
 }
 
 def powerMonitorMenu() {
-    log.debug "Line 432: powerMonitorMenu"
     section("Power Monitor :") {
         input name: "powerMonitor", type: "capability.powerMeter", title: "Device", submitOnChange: true, multiple: false, required: false
         state.triggerOnFlag = false;
@@ -434,7 +424,6 @@ def powerMonitorMenu() {
 }
 
 def contactMonitorMenu() {
-    log.debug "Line 445: contactMonitorMenu"
     section("Contact :") {
         input name: "contactMonitor", type: "capability.contactSensor", title: "Device", submitOnChange: true, multiple: false, required: false
     	if (contactMonitor) {    
@@ -491,7 +480,7 @@ def contactMonitorHandler(evt) {
     	contacted = "on"
         notContacted = "off"
     }
-    log.debug "Line 502: contactMonitorHandler>> value is : $evt.value"
+    log.debug "contactMonitorHandler>> value is : $evt.value"
     if (evt.value == "open") {
         event = [value: notContacted] 
     } else {
@@ -502,9 +491,8 @@ def contactMonitorHandler(evt) {
 
 // Install child device
 def initializeChild(devicetype) {
-    log.debug "Line 516: Init Child"
     //def devices = getDevices()    
-    log.debug "Line 514: addDeviceDone: $selectedDevice, type: $atomicState.selectedMonitorType"
+    log.debug "addDeviceDone: $selectedDevice, type: $atomicState.selectedMonitorType"
     app.updateLabel("$selectedDevice")
 
 	unsubscribe()
@@ -522,7 +510,7 @@ def initializeChild(devicetype) {
     def deviceId = device.id
     def existing = getChildDevice(deviceId)
     if (!existing) {
-        def childDevice = addChildDevice("keo", "Hubitat Harmony_${atomicState.selectedDeviceType}", deviceId, null, ["label": device.label])
+        def childDevice = addChildDevice("turlvo", "KuKu Harmony_${atomicState.selectedDeviceType}", deviceId, null, ["label": device.label])
     } else {
         log.debug "Device already created"
     }
@@ -531,12 +519,11 @@ def initializeChild(devicetype) {
 
 // For child Device
 def command(child, command) {
-    log.debug "Line 544: command function"
 	def device = getDeviceByName("$selectedDevice")
     
-	log.debug "Line 543: childApp parent command(child)>>  $selectedDevice, command: $command, changed Command: ${state.selectedCommands[command]}"
+	log.debug "childApp parent command(child)>>  $selectedDevice, command: $command, changed Command: ${state.selectedCommands[command]}"
     def commandSlug = getSlugOfCommandByLabel(atomicState.deviceCommands, state.selectedCommands[command])
-    log.debug "Line 545: childApp parent command(child)>>  commandSlug : $commandSlug"
+    log.debug "childApp parent command(child)>>  commandSlug : $commandSlug"
     
     def result
     result = sendCommandToDevice(device.slug, commandSlug)
@@ -547,7 +534,9 @@ def command(child, command) {
 
 def commandValue(child, command) {
 	def device = getDeviceByName("$selectedDevice")
-	log.debug "Line 557: childApp parent commandValue(child)>>  $selectedDevice, command: $command"
+    
+	log.debug "childApp parent commandValue(child)>>  $selectedDevice, command: $command"
+    
     def result
     result = sendCommandToDevice(device.slug, command)
     if (result && result.message != "ok") {
@@ -569,7 +558,7 @@ def updated() {
 }
 
 def initialize() {
-   log.debug "Line 580: initialize()"
+	log.debug "initialize()"
    parent ? initializeChild() : initializeParent()
 }
 
@@ -591,7 +580,6 @@ private removeChildDevices(delete) {
 // getSelectedHub
 // return : Installed hub name
 def getSelectedHub() {
-    log.debug "Line 602: getSelectedHub"
 	return atomicState.hub
 }
 
@@ -600,13 +588,14 @@ def getSelectedHub() {
 // - devices : List of devices in Harmony Hub {label, slug}
 // return : Array of devices's label value
 def getLabelsOfDevices(devices) {
-    log.debug "Line 611: getLabelsOfDevices"
 	def labels = []
     devices.each { 
         //log.debug "labelOfDevice: $it"
         labels.add(it.label)
     }
+    
     return labels
+
 }
 
 // getLabelsOfCommands
@@ -614,21 +603,23 @@ def getLabelsOfDevices(devices) {
 // - cmds : List of some device's commands {label, slug}
 // return : Array of commands's label value
 def getLabelsOfCommands(cmds) {
-    log.debug "Line 627: getLabelsOfCommands"
 	def labels = []
     log.debug "getLabelsOfCommands>> cmds"
     cmds.each {
     	//log.debug "getLabelsOfCommands: it.label : $it.label, slug : $it.slug"
     	labels.add(it.label)
     }
+    
     return labels
 }
 
 // getCommandsOfDevice
 // return : result of 'discoverCommandsOfDevice(device)' method. It means that recently requested device's commands
 def getCommandsOfDevice() {
-    log.debug "Line 641: getCommandsOfDevice>> $atomicState.foundCommandOfDevice"
+    //log.debug "getCommandsOfDevice>> $atomicState.foundCommandOfDevice"
+    
     return atomicState.foundCommandOfDevice
+
 }
 
 // getSlugOfCommandByLabel
@@ -638,13 +629,12 @@ def getCommandsOfDevice() {
 // return : slug value same with label in the list of command
 def getSlugOfCommandByLabel(commands, label) {
 	//def commands = []
-    log.debug "Line 654: getSlugOfCommandByLabel"
     def slug
     
     commands.each {    	
     	if (it.label == label) {
         	//log.debug "it.label : $it.label, device : $device"
-        	log.debug "Line 660: getSlugOfCommandByLabel>> $it"
+        	log.debug "getSlugOfCommandByLabel>> $it"
         	//commands = it.commands
             slug = it.slug
         }
@@ -657,7 +647,6 @@ def getSlugOfCommandByLabel(commands, label) {
 // - name : device name searching
 // return : device matched by name in Harmony Hub's devices
 def getDeviceByName(name) {
-    log.debug "Line 673: getDeviceByName"
 	def device = []    
 	atomicState.devices.each {
     	//log.debug "getDeviceByName>> $it.label, $name"
@@ -673,7 +662,6 @@ def getDeviceByName(name) {
 // getHubDevices
 // return : searched list of device in Harmony Hub when installed
 def getHubDevices() {
-    log.debug "Line 689: getHubDevices"
 	return atomicState.devices
 }
 
@@ -686,7 +674,7 @@ def getHubDevices() {
 // - command : sending command
 // return : 'sendCommandToDevice_response()' method callback
 def sendCommandToDevice(device, command) {
-	log.debug("Line 702: sendCommandToDevice >> harmonyApiServerIP : ${parent.getHarmonyApiServerIP()}")
+	log.debug("sendCommandToDevice >> harmonyApiServerIP : ${parent.getHarmonyApiServerIP()}")
     sendHubCommand(setHubAction(parent.getHarmonyApiServerIP(), "/hubs/$atomicState.hub/devices/$device/commands/$command", "sendCommandToDevice_response"))
 }
 
@@ -700,7 +688,7 @@ def sendCommandToDevice_response(resp) {
 // parameter : 
 // return : 'getHubStatus_response()' method callback
 def getHubStatus() {	
-    log.debug "Line 716: getHubStatus"
+    log.debug "getHubStatus"
     sendHubCommand(getHubAction(atomicState.harmonyApiServerIP, "/hubs/$atomicState.hub/status", "getHubStatus_response"))
     if (atomicState.getHubStatusWatchdog == true) {
     	atomicState.hubStatus = "offline"
@@ -709,25 +697,24 @@ def getHubStatus() {
 }
 
 def getHubStatus_response(resp) {
-    log.debug "Line 721: getHubStatus Response"
    	def result = []
     atomicState.getHubStatusWatchdog = false
     
     if (resp.description != null && parseLanMessage(resp.description).body) {
-    	log.debug "Line 729: getHubStatus_response>> response: $resp.description"
+    	log.debug "getHubStatus_response>> response: $resp.description"
     	def body = new groovy.json.JsonSlurper().parseText(parseLanMessage(resp.description).body)
 	
         if(body && body.off != null) {            	
-            log.debug "Line 733: getHubStatus_response>> $body.off"
+            log.debug "getHubStatus_response>> $body.off"
             if (body.off == false) {
             	atomicState.hubStatus = "online"
             }
         } else {
-            log.debug "Line 738: getHubStatus_response>> $body.off"
+            log.debug "getHubStatus_response>> $body.off"
             atomicState.hubStatus = "offline"
         }
     } else {
-    	log.debug "Line 742: getHubStatus_response>> Status error"
+    	log.debug "getHubStatus_response>> Status error"
         atomicState.hubStatus = "offline"
     }
 }
@@ -738,22 +725,24 @@ def getHubStatus_response(resp) {
 // return : 'discoverCommandsOfDevice_response()' method callback
 def discoverCommandsOfDevice(name) {
 	device = getDeviceByName(name)
-    log.debug "Line 753: discoverCommandsOfDevice>> name:$name, device:$device"
+    log.debug "discoverCommandsOfDevice>> name:$name, device:$device"
+    
     sendHubCommand(getHubAction(atomicState.harmonyApiServerIP, "/hubs/$atomicState.hub/devices/${device.slug}/commands", "discoverCommandsOfDevice_response"))
+
 }
 
 def discoverCommandsOfDevice_response(resp) {
-    log.debug "Line 758: discoverCommandsOfDevice_response"
    	def result = []
     def body = new groovy.json.JsonSlurper().parseText(parseLanMessage(resp.description).body)
 	
     if(body) {            	
         body.commands.each {            
             def command = ['label' : it.label, 'slug' : it.slug]
-            log.debug "Line 765: getCommandsOfDevice_response>> command: $command"
+            //log.debug "getCommandsOfDevice_response>> command: $command"
             result.add(command)            
         }
     }
+    
     atomicState.foundCommandOfDevice = result
 }
 
@@ -762,18 +751,18 @@ def discoverCommandsOfDevice_response(resp) {
 // - hubname : name of hub searching devices
 // return : 'discoverDevices_response()' method callback
 def discoverDevices(hubname) {
-	log.debug "Line 773: discoverDevices>> $atomicState.harmonyApiServerIP $hubname"
+	log.debug "discoverDevices>> $hubname"
 	sendHubCommand(getHubAction(atomicState.harmonyApiServerIP, "/hubs/$hubname/devices", "discoverDevices_response"))
 }
 
 def discoverDevices_response(resp) {
 	def result = []
     def body = new groovy.json.JsonSlurper().parseText(parseLanMessage(resp.description).body)
-    log.debug("Line 784: discoverDevices_response >> $body.devices")
+    log.debug("discoverHubs_response >> $body.devices")
 	
     if(body) {            	
         body.devices.each {
-            log.debug "Line 788: getHubDevices_response: $it.id, $it.label, $it.slug"
+            //log.debug "getHubDevices_response: $it.id, $it.label, $it.slug"
             def device = ['id' : it.id, 'label' : it.label, 'slug' : it.slug]
             result.add(device)
         }
@@ -788,26 +777,24 @@ def discoverDevices_response(resp) {
 // - host : ip address searching hubs
 // return : 'discoverHubs_response()' method callback
 def discoverHubs(host) {
-	log.debug("Line 796: discoverHubs")
+	log.debug("discoverHubs")
     return sendHubCommand(getHubAction(host, "/hubs", "discoverHubs_response"))
 }
 
 def discoverHubs_response(resp) {
 	def result = []
     def body = new groovy.json.JsonSlurper().parseText(parseLanMessage(resp.description).body)
-    log.debug("Line 803: discoverHubs_response >> $body")
+    log.debug("discoverHubs_response >> $body.hubs")
 	
-    if(body && body.hubs != null) { 
-        log.debug "Line 808: ${body} and ${body.hubs}"
+    if(body && body.hubs != null) {            	
         body.hubs.each {
-            log.debug "Line 810: discoverHubs_response: $it"
+            log.debug "discoverHubs_response: $it"
             result.add(it)
         }
         atomicState.discoverdHubs = result
     } else {
     	atomicState.discoverdHubs = null
-    }  
-    log.debug "Line 821: atomicState.discoverdHubs = ${atomicState.discoverdHubs}"
+    }    
 }
 
 // -----------------------------
@@ -818,9 +805,9 @@ def discoverHubs_response(resp) {
 // - url : target url
 // - callback : response callback method name
 def getHubAction(host, url, callback) {
-	log.debug "Line 828: getHubAction>> $host, $url, $callback"
-    return new hubitat.device.HubAction("GET ${url} HTTP/1.1\r\nHOST: ${host}\r\n\r\n", hubitat.device.Protocol.LAN, "${host}", [callback: callback])
-    log.debug "GET ${url} HTTP/1.1\r\nHOST: ${host}\r\n\r\n, hubitat.device.Protocol.LAN, "${host}", [callback: callback])"
+	log.debug "getHubAction>> $host, $url, $callback"
+    return new hubitat.device.HubAction("GET ${url} HTTP/1.1\r\nHOST: ${host}\r\n\r\n",
+            hubitat.device.Protocol.LAN, "${host}", [callback: callback])
 }
 
 // setHubAction
@@ -829,6 +816,7 @@ def getHubAction(host, url, callback) {
 // - url : target url
 // - callback : response callback method name
 def setHubAction(host, url, callback) {
-	log.debug "Line 838: setHubAction>> $host, $url, $callback"
-    return new hubitat.device.HubAction("POST ${url} HTTP/1.1\r\nHOST: ${host}\r\n\r\n", hubitat.device.Protocol.LAN, "${host}", [callback: callback])
+	log.debug "getHubAction>> $host, $url, $callback"
+    return new hubitat.device.HubAction("POST ${url} HTTP/1.1\r\nHOST: ${host}\r\n\r\n",
+            hubitat.device.Protocol.LAN, "${host}", [callback: callback])
 }
