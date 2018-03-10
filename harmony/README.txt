@@ -1,4 +1,4 @@
-Hubitat Harmony is a SmartApp give users the ability to control each device by Logitech Harmony. It works based on 'Harmony API'
+Hubitat Harmony is a SmartApp that gives users the ability to control each device by Logitech Harmony. It works based on 'Harmony API'
 https://github.com/maddox/harmony-api
 
 This is a port from KuKu Harmony to work on the Hubitat home automation platform.
