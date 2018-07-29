@@ -24,10 +24,16 @@
  *
  *  Version history
  *
- *
- *  v0.1.04.28.16 - Added Follow Location Mode option for AT&T
- *  v0.1.03.23.16 - Updated location sync method
- *  v0.1.03.22.16 - Initial beta release
+ *  v0.1.18.03.02 - SmartThings is now enforcing TLS 1.2 on all REST clients, DigitalLife is using old Symantec certificates that are not allowed by TLSv1.2. Also added support for automatic bypass.
+ *  v0.1.18.01.16 - Lowered the wait time for SSDP response to 5s, because ST lowered the page rendering time out to 10s
+ *  v0.1.17.06.13 - Lowered the wait time for SSDP response to 5s, because ST lowered the page rendering time out to 10s
+ *  v0.1.16.06.21 - Added support for Instant, switch level is now 0/home, 1/stay, 2/instant, 3/away. Improved mode handling, replaced attribute "mode" with "digital-life-mode" as it was conflicting with the location mode
+ *  v0.1.16.04.12 - Added support for AT&T Digital Life switch (switch is "off" when alarm is disarmed and "on" when the alarm is in stay/away/instant mode)
+ *  v0.1.16.04.06b - Added support for switch level (sending event to set the level as well as the mode)
+ *  v0.1.16.04.06 - Replaced Follow Location Mode with Sync Location Mode and added Sync Smart Home Monitor option for AT&T. Thank you Keo for the idea
+ *  v0.1.16.03.28 - Added Follow Location Mode option for AT&T
+ *  v0.1.16.03.23 - Updated location sync method
+ *  v0.1.16.03.22 - Initial beta release
  *
 **/
 
@@ -43,7 +49,7 @@ definition(
     oauth: true)
 
 private getMyQAppId() {
-    return 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB/i'
+//    return 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB/i'
 	return 'JVM/G9Nwih5BwKgNCjLxiFUQxQijAebyyg8QUHr7JOrP+tuPb8iHfRHKwTmDzHOu'
 }
 
@@ -76,21 +82,21 @@ def prefWelcome() {
         }
         section() {
             href(name: "href",
-                 title: "Use the Home Cloud Hub service",
-                 required: false,
-                 params: [next: true, hchLocal: false],
-                 page: "prefHCH",
-                 description: "Select this if you have an account with www.homecloudhub.com",
-                 state: !state.ihch.useLocalServer ? "complete" : null)
-        }
-        section() {
-            href(name: "href",
                  title: "Use a local Home Cloud Hub server you installed",
                  required: false,
                  params: [next: true, hchLocal: true],
                  page: "prefHCH",
                  description: "Select this if you have already installed a local server in your network",
                  state: state.ihch.useLocalServer ? "complete" : null)
+        }
+        section() {
+            href(name: "href",
+                 title: "Use the Home Cloud Hub service",
+                 required: false,
+                 params: [next: true, hchLocal: false],
+                 page: "prefHCH",
+                 description: "Select this if you have an account with www.homecloudhub.com",
+                 state: !state.ihch.useLocalServer ? "complete" : null)
         }
     }
 }
@@ -106,13 +112,14 @@ def prefHCH(params) {
             def cnt = 50
             def hchLocalServerIp = null
             while (cnt--) {
-            	pause(200)
+            	pause(100)
                 hchLocalServerIp = atomicState.hchLocalServerIp
                 if (hchLocalServerIp) {
                 	state.ihch.localServerIp = hchLocalServerIp
                 	break
                 }
             }
+            log.trace "Stopped waiting..."
             section("Automatic configuration") {
 				if (hchLocalServerIp) {
 					href(name: "href",
@@ -155,12 +162,16 @@ def prefModulesPrepare(params) {
     } else {
         state.ihch.localServerIp = settings.hchLocalServerIp
     }
-    
+    log.trace "IP is $state.ihch.localServerIp"
     if (doHCHLogin()) {
+    log.trace "HERE 1"
 	    //prefill states for the modules
     	doATTLogin(true, true)
-    	doMyQLogin(true, true)
+    log.trace "HERE 2"
+    	//doMyQLogin(true, true)
+    log.trace "HERE 3"
     	doIFTTTLogin(true, true)
+    log.trace "HERE 4"
 		return prefModules()
 	} else {
     	if (state.ihch.useLocalServer) {
@@ -225,7 +236,9 @@ def prefATT() {
             }
             section("Permissions") {
 				input("attControllable", "bool", title: "Control AT&T Digital Life", required: true, defaultValue: true)
-				input("attFollowMode", "bool", title: "Follow Location Mode", required: true, defaultValue: true)
+				input("attAutoBypass", "bool", title: "Automatically bypass", required: false, defaultValue: true)
+				input("attSyncLocationMode", "bool", title: "Sync Location Mode", required: true, defaultValue: true)
+				input("attSyncSmartHomeMonitor", "bool", title: "Sync Smart Home Monitor", required: true, defaultValue: true)
             }
     	}
 	} else {
@@ -336,16 +349,17 @@ def prefIFTTTConfirm() {
 /* Login to Home Cloud Hub                                             */
 /***********************************************************************/
 private doHCHLogin() {
+	try {
 	if (state.ihch.useLocalServer) {
         atomicState.hchPong = false
 
 		log.trace "Pinging local server at " + state.ihch.localServerIp
-        sendLocalServerCommand state.ihch.localServerIp, "ping", ""
+        sendLocalServerCommand state.ihch.localServerIp, "ping", [:]
 
 		def cnt = 50
         def hchPong = false
         while (cnt--) {
-            pause(200)
+            pause(100)
             hchPong = atomicState.hchPong
             if (hchPong) {
                 return true
@@ -370,12 +384,14 @@ private doHCHLogin() {
             }
         }
 	}
+	} catch (e) { log.error "Error logging in to HCH...", e }
 }
 
 /***********************************************************************/
 /* Login to AT&T Digital Life                                          */
 /***********************************************************************/
 private doATTLogin(installing, force) {
+	try {
 	def module_name = 'digitallife';
     //if cookies haven't expired and unless we need to force a login, we report all is pink
     if (!installing && !force && state.hch.security[module_name] && state.hch.security[module_name].connected && (state.hch.security[module_name].expires > now())) {
@@ -388,7 +404,8 @@ private doATTLogin(installing, force) {
     hch.security[module_name] = [
     	'enabled': !!(settings.attUsername || settings.attPassword),
         'controllable': settings.attControllable,
-        'followMode': settings.attFollowMode,
+        'syncLocationMode': settings.attSyncLocationMode,
+        'syncSmartHomeMonitor': settings.attSyncSmartHomeMonitor,
         'connected': false
     ]
     //check if the AT&T Digital Life module is enabled
@@ -402,6 +419,7 @@ private doATTLogin(installing, force) {
 				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36'
             ],
+            tlsVersion: "TLSv1.1",
             body: "source=DLNA&targetURL=https://my-digitallife.att.com/dl/#/authenticate&loginURL=https://my-digitallife.att.com/dl/#/login&userid=${settings.attUsername}&password=${settings.attPassword}"
         ]) { response ->
         	//check response, sometimes they redirect, that's fine, we don't need to follow the redirect, we just need the cookies
@@ -411,7 +429,7 @@ private doATTLogin(installing, force) {
                 //the hard part, get the cookies
 				response.getHeaders('Set-Cookie').each {
                     def cookie = it.value.split(';')[0]
-					cookies.push(cookie)
+					if (!cookie.startsWith('PD_')) cookies.push(cookie)
                     c = c + cookie + '; '
 				}
                 //using the cookies, retrieve the auth tokens
@@ -424,6 +442,7 @@ private doATTLogin(installing, force) {
                         "DNT": "1",
                         "Cookie": c
                     ],
+                    tlsVersion: "TLSv1.1",
 	                body: "domain=DL&appKey=TI_3198CF46D58D3AFD_001"
        			]) { response2 ->
                 	//check response, continue if 200 OK
@@ -451,12 +470,15 @@ private doATTLogin(installing, force) {
 	} else {
     	return true;
     }
+    } catch(e) { log.error "Error logging in to AT&T", e }
 }
 
 /***********************************************************************/
 /* Login to MyQ                                                        */
 /***********************************************************************/
 def doMyQLogin(installing, force) {
+return;
+	try {
 	def module_name = 'myq';
     //if cookies haven't expired and unless we need to force a login, we report all is pink
     if (!installing && !force && state.hch.security[module_name] && state.hch.security[module_name].connected && (state.hch.security[module_name].expires > now())) {
@@ -467,7 +489,7 @@ def doMyQLogin(installing, force) {
     def hch = (installing ? state.ihch : state.hch)
     hch.useMyQ = false
     hch.security[module_name] = [
-    	'enabled': !!(settings.myqUsername || settings.myqPassword),
+    	'enabled': !!(settings.myqUsername && settings.myqPassword),
         'controllable': settings.myqControllable,
         'connected': false
     ]
@@ -475,13 +497,35 @@ def doMyQLogin(installing, force) {
     	log.info "Logging in to MyQ..."
         //perform the login, retrieve token
         def myQAppId = getMyQAppId()
-        return httpGet("https://myqexternal.myqdevice.com/Membership/ValidateUserWithCulture?appId=${myQAppId}&securityToken=null&username=${settings.myqUsername}&password=${settings.myqPassword}&culture=en") { response ->
+        //return httpGet("https://myqexternal.myqdevice.com/Membership/ValidateUserWithCulture?appId=${myQAppId}&securityToken=null&username=${settings.myqUsername}&password=${settings.myqPassword}&culture=en") { response ->
+        return httpPost([
+        	uri: "https://myqexternal.myqdevice.com",
+            path:"/api/v4/User/Validate",
+            headers: [
+            	"BrandId": "2",
+                "ApiVersion": "4.1",
+                "User-Agent": "Chamberlain/3.73 (iPhone; iOS 10.1; Scale/2.00)",
+                MyQApplicationId: "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx"
+            ],
+            contentType: "text/plain",
+            body: [
+            	"username": "ady624@gmail.com",
+                "password": "Adrian_625"
+			]
+		]) { response ->
+        //return httpGet([uri: "https://myqexternal.myqdevice.com", path:"/api/user/validate", query: [appId: myQAppId, username: settings.myqUsername, password: settings.myqPassword]]) { response ->
 			//check response, continue if 200 OK
+            def s = "";
+ 			for (int i = 0; i < 5; i++) {
+            	s = s + (char) response.data.read();
+         	}            
+            log.trace response.status
+            log.trace s
        		if (response.status == 200) {
 				if (response.data && response.data.SecurityToken) {
                     hch.security[module_name].securityToken = response.data.SecurityToken
                     hch.security[module_name].connected = now()
-                	hch.security[module_name].expires = now() + 7200000 //expires in 12 hours
+                	hch.security[module_name].expires = now() + 5000 //expires in 5 minutes
 					log.info "Successfully connected to MyQ"
                     hch.useMyQ = true
                 	return true;
@@ -492,12 +536,14 @@ def doMyQLogin(installing, force) {
     } else {
 		return true;
 	}
+    } catch(e) { log.error "Error logging in to MyQ", e }
 }
 
 /***********************************************************************/
 /* Login to IFTTT                                                      */
 /***********************************************************************/
 def doIFTTTLogin(installing, force) {
+	try {
     //setup our security descriptor
     def hch = (installing ? state.ihch : state.hch)
     hch.useIFTTT = false
@@ -514,6 +560,7 @@ def doIFTTTLogin(installing, force) {
     } else {
 		return true;
 	}
+    } catch(e) { log.error "Error logging in to IFTTT", e }
 }
 
 
@@ -579,14 +626,18 @@ def initialize() {
     
 	state.hch.usesATT = !!(settings.attUsername || settings.attPassword)
 	state.hch.usesIFTTT = !!settings.iftttKey
+	state.hch.usesMyQ = !!(settings.myqUsername || settings.myqPassword)
     
-    if (state.hch.usesATT && settings.attControllable && settings.attFollowMode) {
-    	/* subscribe to SmartThings Home Monitor to allow sync with AT&T Digital Life status */
-		//subscribe(location, "alarmSystemStatus", shmHandler)
-        
-        /* subscribe to mode changes to allow sync with AT&T Digital Life */
-        subscribe(location, modeChangeHandler)
-   }
+    if ((state.hch.usesATT) && (settings.attControllable)) {
+    	if (settings.attSyncLocationMode) {
+	        /* subscribe to mode changes to allow sync with AT&T Digital Life */
+	        subscribe(location, modeChangeHandler)
+        }
+    	if (settings.attSyncSmartHomeMonitor) {        
+    		/* subscribe to SmartThings Home Monitor to allow sync with AT&T Digital Life status */
+			subscribe(location, "alarmSystemStatus", shmHandler)
+        }
+    }
 	if (state.hch.useLocalServer) {
 		//listen to LAN incoming messages
 		subscribe(location, null, lanEventHandler, [filterEvents:false])
@@ -630,14 +681,14 @@ def shmHandler(evt) {
     	children.each {
 	    	//look for the digital-life-system device
 	        if ((it.currentValue('module') == 'digitallife') && (it.currentValue('type') == 'digital-life-system')) {
-				if (mode != it.currentValue('mode')) {
+				if (mode != it.currentValue('digital-life-mode')) {
                 	log.info 'Requesting mode ' + mode + ' from ' + it.name
-                    proxyCommand it, 'mode', mode
+                    proxyCommand it, 'digital-life-mode', mode
                 }
 	        }
         }
  	}
-    return true;
+    //return true;
 }
 
 def modeChangeHandler(event) {
@@ -646,7 +697,7 @@ def modeChangeHandler(event) {
     	return
     }
     if (event.name == 'mode') {
-        log.info "Received notification of SmartThings Mode having changed to ${event.value}"
+        log.info "Received notification of Location Mode having changed to ${event.value}"
         def mode = null;
         switch (event.value) {
             case 'Home':
@@ -664,14 +715,14 @@ def modeChangeHandler(event) {
             children.each {
                 //look for the digital-life-system device
                 if ((it.currentValue('module') == 'digitallife') && (it.currentValue('type') == 'digital-life-system')) {
-                    if (mode != it.currentValue('mode')) {
+                    if (mode != it.currentValue('digital-life-mode')) {
                         log.info 'Requesting mode ' + mode + ' from ' + it.name
-                        proxyCommand it, 'mode', mode
+                        proxyCommand it, 'digital-life-mode', mode
                     }
                 }
             }
         }
-        return true;
+        //return true;
 	}
 }
 
@@ -681,16 +732,18 @@ private searchForLocalServer() {
 		state.ihch.subscribed = true
     }       
 	log.trace "Looking for local HCH server..."
-	sendHubCommand(new hubitat.device.HubAction("lan discovery " + getLocalServerURN(), hubitat.device.Protocol.LAN))
+	sendHubCommand(new physicalgraph.device.HubAction("lan discovery " + getLocalServerURN(), physicalgraph.device.Protocol.LAN))
 }
 
 def lanEventHandler(evt) {
     def description = evt.description
     def hub = evt?.hubId
 	def parsedEvent = parseLanMessage(description)
+	//log.trace "RECEIVED LAN EVENT: $parsedEvent"
 	
 	//discovery
 	if (parsedEvent.ssdpTerm && parsedEvent.ssdpTerm.contains(getLocalServerURN())) {
+    	log.trace "DISCOVERY SUCCESSFUL"
         atomicState.hchLocalServerIp = convertHexToIP(parsedEvent.networkAddress)
 	}
     
@@ -704,6 +757,7 @@ def lanEventHandler(evt) {
         }   	
     }
     if (parsedEvent.data && parsedEvent.data.event) {
+	    //log.trace "GOT LAN EVENT ${parsedEvent.data.event} and data ${parsedEvent.data.data}"
         switch (parsedEvent.data.event) {
         	case "init":
                 sendLocalServerCommand state.hch.localServerIp, "init", [
@@ -716,18 +770,23 @@ def lanEventHandler(evt) {
                 break
         }
     }
-    
 }
 
 private sendLocalServerCommand(ip, command, payload) {
-    sendHubCommand(new hubitat.device.HubAction(
-        method: "GET",
-        path: "/${command}",
-        headers: [
-            HOST: "${ip}:42457"
-        ],
-        query: payload ? [payload: groovy.json.JsonOutput.toJson(payload).bytes.encodeBase64()] : []
-    ))
+	try {
+        ip = ip ?: state.sch.localServerIp
+        log.trace "Sending command $command with payload size ${"${groovy.json.JsonOutput.toJson(payload).bytes.encodeBase64()}".size()} to IP $ip"
+        log.trace payload
+        sendHubCommand(new physicalgraph.device.HubAction(
+            method: "GET",
+            path: "/${command}",
+            headers: [
+                HOST: "${ip}:42457"
+            ],
+            //body: [payload: payload]
+            query: payload ? [payload: groovy.json.JsonOutput.toJson(payload).bytes.encodeBase64()] : []
+        ))
+	} catch (e) { log.error "Got an error...", e }
 }
 
 
@@ -802,7 +861,7 @@ private processEvent(data) {
     if (description) {
     	log.info 'Received event: ' + description
     } else {
-    	log.info "Received ${eventName} event for module ${deviceModule}, device ${deviceName}, value ${eventValue}"
+    	log.info "Received ${eventName} event for module ${deviceModule}, device ${deviceName} of type ${deviceType}, value ${eventValue}, data: $data"
     }
 	// see if the specified device exists and create it if it does not exist
     def deviceDNI = (deviceModule + '-' + deviceId).toLowerCase();
@@ -837,63 +896,87 @@ private processEvent(data) {
         for(param in data) {
             def key = param.key
         	def value = param.value
+            if (deviceId != device.currentValue("id")) {
+            	device.sendEvent(name: "id", value: deviceId);
+            }
         	if ((key.size() > 5) && (key.substring(0, 5) == 'data-')) {
             	key = key.substring(5);
                 def oldValue = device.currentValue(key);
                 if (oldValue != value) {
-                    device.sendEvent(name: key, value: value);
+					device.sendEvent(name: key, value: value);
                     //list of capabilities
                     //http://docs.smartthings.com/en/latest/capabilities-reference.html
 
                     //digital life alarm sync
                     if (true) {
-                        if ((deviceType == 'digital-life-system') && (key == 'system-status')) {
+                        if ((deviceType == 'digital-life-system') && (key == 'system-status') && (eventValue == value)) {
                             log.info "Digital Life alarm status changed from ${oldValue} to ${value}"
                             def mode = null;
-                            def shmState = null;
+                            def level = null;
+                            def sweetch = null; //can't use "switch"
+                            def shmState = null;                            
                             switch (value) {
-                                case 'Home':
-                                    mode = 'Home'
-                                    shmState = 'off'
+                                case "Home":
+                                    mode = "Home"
+                                    level = 0
+                                    sweetch = "off"
+                                    shmState = "off"
                                     break
-                                case 'Away':
-                                    mode = 'Away'
-                                    shmState = 'away'
+                                case "Away":
+                                    mode = "Away"
+                                    level = 3
+                                    sweetch = "on"
+                                    shmState = "away"
                                     break
-                                case 'Stay':
-                                    mode = 'Night'
-                                    shmState = 'stay'
+                                case "Stay":
+                                    mode = "Night"
+                                    level = 1
+                                    sweetch = "on"
+                                    shmState = "stay"
                                     break
-                                case 'Instant':
-                                    mode = 'Night'
-                                    shmState = 'stay'
+                                case "Instant":
+                                    mode = "Night"
+                                    level = 2
+                                    sweetch = "on"
+                                    shmState = "stay"
                                     break                        
                             }
-                            if (mode) {
+                            //push that bypass button
+                            if (settings.attAutoBypass && value.contains("Bypass")) {
+                            	def lastRequestedMode = state.lastRequestedMode
+                                def bypassedDeviceList = data["data-bypassed-device-list"]?:''
+                                if (bypassedDeviceList?.size() && (lastRequestedMode in ['Stay', 'Away', 'Instant'])) {
+                            		log.info "Bypass required for $lastRequestedMode mode, automatically bypassing the not ready devices: $bypassedDeviceList"                               
+                            		cmd_digitallife(device, 'digital-life-mode', lastRequestedMode, false, bypassedDeviceList)
+                                }
+                            }
+							if (mode) {
                             	//set device mode
-                                if (mode != device.currentValue('mode')) {
-                                    log.info 'Switching Digital Life mode from ' + device.currentValue('mode') + ' to ' + mode
-	                                device.sendEvent(name: 'mode', value: mode);
+                                if (value != device.currentValue('digital-life-mode')) {
+                                    log.info 'Switching Digital Life mode from ' + device.currentValue('digital-life-mode') + ' to ' + value
+	                                device.sendEvent(name: 'digital-life-mode', value: value);
+                                    device.sendEvent(name: 'level', value: level);
+                                    device.sendEvent(name: 'switch', value: sweetch);
                                 }
                                 //sync location mode
-                                if (mode != location.mode) {
+                                if ((settings.attSyncLocationMode) && (mode != location.mode)) {
                                     log.info 'Switching location mode from ' + location.mode + ' to ' + mode
                                     location.setMode(mode);
                                 }
-                            }
-                            //sync SmartThings Home Monitor
-                            //def currentShmState = location.currentState('alarmSystemStatus')?.value
-                            //if (shmState && (shmState != currentShmState)) {
-                                //log.info 'Switching SmartThings Home Monitor from ' + currentShmState + ' to ' + shmState
-                                //sendLocationEvent(name: 'alarmSystemStatus', value: shmState)
-                            //}
-                        }                    
-                    }
-                }
-            }
-        }
+                            	//sync SmartThings Home Monitor
+                            	def currentShmState = location.currentState('alarmSystemStatus')?.value
+                            	if ((settings.attSyncSmartHomeMonitor) && (shmState) && (shmState != currentShmState)) {
+                                	log.info 'Switching SmartThings Home Monitor from ' + currentShmState + ' to ' + shmState
+                                	sendLocationEvent(name: 'alarmSystemStatus', value: shmState)
+                            	}
+							}
+                    	}
+                	}
+            	}
+        	}
+    	}
     }
-    if (state.hch.usesIFTTT && (eventName == 'update') && deviceModule && deviceId && eventName && eventValue && (eventValue != 'undefined')) {
+    if (state.hch.usesIFTTT && (eventName == 'update') && deviceModule && deviceId && eventName && eventValue && (eventValue != 'undefined') && !eventValue.contains("-ack") && !eventValue.contains("token")) {
     	//we need to proxy the event to IFTTT
         try {
         	def trigger = (deviceModule + '-' + deviceId + '-' + eventValue).replace(" ", "-").toLowerCase();
@@ -997,7 +1080,7 @@ def proxyCommand(device, command, value) {
 /***********************************************************************/
 /*                  AT&T DIGITAL LIFE MODULE COMMANDS                  */
 /***********************************************************************/
-def cmd_digitallife(device, command, value, retry) {
+def cmd_digitallife(device, command, value, retrying, bypass = '') {
 	//are we allowed to use ATT?
    	def module_name = "digitallife"
 	if (!state.hch.useATT || !(state.hch.security && state.hch.security[module_name] && state.hch.security[module_name].controllable)) {
@@ -1018,10 +1101,11 @@ def cmd_digitallife(device, command, value, retry) {
     switch (device.currentValue("type")) {
     	case "digital-life-system":
         	switch (command) {
-            	case "mode":
+            	case "digital-life-mode":
+                	state.lastRequestedMode = value
                 	path = "alarm"
                     data = [
-                    		bypass: '',
+                    		bypass: bypass?:'',
                             status: value
                     	]
                 	break;
@@ -1043,6 +1127,7 @@ def cmd_digitallife(device, command, value, retry) {
                     "requestToken": state.hch.security[module_name].requestToken,
                     "Cookie": cookies
                 ],
+                tlsVersion: "TLSv1.1",
                 body: data
             ]) { response ->
                 //check response, continue if 200 OK
@@ -1056,7 +1141,7 @@ def cmd_digitallife(device, command, value, retry) {
             	return "Successfuly sent command to AT&T Digital Life: device ${device} command ${command} value ${value} result ${message}"
             } else {
             	//if we failed and this was already a retry, give up
-            	if (retry) {
+            	if (retrying) {
 		            return "Failed sending command to AT&T Digital Life: ${message}"
                 }
             	//we failed the first time, let's retry
@@ -1085,7 +1170,7 @@ def cmd_digitallife(device, command, value, retry) {
 def cmd_myq(device, command, value, retry) {
 	//are we allowed to use MyQ?
    	def module_name = "myq"
-	if (!state.hch.useMyQ || !(state.hch.security && state.hch.security[module_name] && state.hch.security[module_name].controllable)) {
+	if (!state.hch.usesMyQ || !(state.hch.security && state.hch.security[module_name] && state.hch.security[module_name].controllable)) {
     	//we are either not using this module or we can't controll it
     	return "No permission to control MyQ"
     }
@@ -1144,7 +1229,9 @@ def cmd_myq(device, command, value, retry) {
                 return "cmd_${module_name}"(device, command, value, true)
             }
 		} catch(e) {
-    		message = "Failed sending command to MyQ: ${e}"
+    		message = "Failed sending command to MyQ: ${e}, falling back on HCH"
+            sendLocalServerCommand state.hch.localServerIp, "cmd", [module: module_name, deviceId: device.currentValue('id'), command: command]
         }
     }
+    return message
 }
