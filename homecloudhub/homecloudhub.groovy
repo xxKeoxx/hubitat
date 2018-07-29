@@ -76,7 +76,7 @@ preferences {
 /***********************************************************************/
 def prefWelcome() {
 	state.ihch = [security: [:]]    
-    dynamicPage(name: "prefWelcome", title: "Welcome to Home Cloud Hub", uninstall: state.installed) {
+    return dynamicPage(name: "prefWelcome", title: "Welcome to Home Cloud Hub", uninstall: state.installed) {
         section("Connection Type") {
             paragraph "Welcome to Home Cloud Hub. Please select a server connection method to start"
         }
@@ -132,11 +132,10 @@ def prefHCH(params) {
 	            } else {
                 	paragraph "Could not identify any local servers"
                 }
-            }
-            
+            }           
         	section("Manual Configuration") {
-	            input("hchLocalServerIp", "text", title: "Enter the IP of your local server", required: true, defaultValue: "")
-	        }
+			    input("hchLocalServerIp", "text", title: "Enter the IP of your local server", required: true, defaultValue: "")
+            }
         } else {
             section(title: "", hidden: true) {
                 paragraph "Create a Home Cloud Hub account and enter your credentials below"
@@ -157,21 +156,27 @@ def prefHCH(params) {
 }
 
 def prefModulesPrepare(params) {
-	if (params.hchLocalServerIp) {
-    	state.ihch.localServerIp = params.hchLocalServerIp
-    } else {
-        state.ihch.localServerIp = settings.hchLocalServerIp
+    log.info "params: " + params
+    log.info "settings: " + hchLocalServerIp
+    try {
+	  if (params.hchLocalServerIp) {
+    	  state.ihch.localServerIp = params.hchLocalServerIp
+      } else {
+          state.ihch.localServerIp = settings.hchLocalServerIp
+      }
+    }catch(NullPointerException){
+      state.ihch.localServerIp = hchLocalServerIp
     }
     log.trace "IP is $state.ihch.localServerIp"
-    if (doHCHLogin()) {
-    log.trace "HERE 1"
+    if (doHCHLogin() == true) {
+      log.trace "HERE 1"
 	    //prefill states for the modules
     	doATTLogin(true, true)
-    log.trace "HERE 2"
+      log.trace "HERE 2"
     	//doMyQLogin(true, true)
-    log.trace "HERE 3"
+      log.trace "HERE 3"
     	doIFTTTLogin(true, true)
-    log.trace "HERE 4"
+      log.trace "HERE 4"
 		return prefModules()
 	} else {
     	if (state.ihch.useLocalServer) {
@@ -356,8 +361,9 @@ private doHCHLogin() {
 		log.trace "Pinging local server at " + state.ihch.localServerIp
         sendLocalServerCommand state.ihch.localServerIp, "ping", [:]
 
-		def cnt = 50
-        def hchPong = false
+		def cnt = 100
+        //def hchPong = false
+        def hchpong = true
         while (cnt--) {
             pause(100)
             hchPong = atomicState.hchPong
@@ -732,7 +738,7 @@ private searchForLocalServer() {
 		state.ihch.subscribed = true
     }       
 	log.trace "Looking for local HCH server..."
-	sendHubCommand(new physicalgraph.device.HubAction("lan discovery " + getLocalServerURN(), physicalgraph.device.Protocol.LAN))
+	sendHubCommand(new hubitat.device.HubAction("lan discovery " + getLocalServerURN(), hubitat.device.Protocol.LAN))
 }
 
 def lanEventHandler(evt) {
@@ -777,7 +783,7 @@ private sendLocalServerCommand(ip, command, payload) {
         ip = ip ?: state.sch.localServerIp
         log.trace "Sending command $command with payload size ${"${groovy.json.JsonOutput.toJson(payload).bytes.encodeBase64()}".size()} to IP $ip"
         log.trace payload
-        sendHubCommand(new physicalgraph.device.HubAction(
+        sendHubCommand(new hubitat.device.HubAction(
             method: "GET",
             path: "/${command}",
             headers: [
