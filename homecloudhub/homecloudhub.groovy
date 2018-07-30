@@ -168,7 +168,7 @@ def prefModulesPrepare(params) {
       state.ihch.localServerIp = hchLocalServerIp
     }
     log.trace "IP is $state.ihch.localServerIp"
-    if (doHCHLogin() == true) {
+    if (doHCHLogin()) {
       log.trace "HERE 1"
 	    //prefill states for the modules
     	doATTLogin(true, true)
@@ -236,7 +236,7 @@ def prefATT() {
                 paragraph "NOTE: Since AT&T Digital Life™ does not support OAuth, your username and password are required for integration. They will be stored in your personal instance of the application on SmartThings' servers and are NEVER shared with anyone, not even with Home Cloud Hub. The credentials are used to generate a set of temporary tokens that are shared with Home Cloud Hub."
             }
             section("Login Credentials"){
-                input("attUsername", "email", title: "Username", description: "Your AT&T Digital Life™ login", required: false)
+                input("attUsername", "Username", title: "Username", description: "Your AT&T Digital Life™ login", required: false)
                 input("attPassword", "password", title: "Password", description: "Your password", required: false)
             }
             section("Permissions") {
@@ -256,7 +256,8 @@ def prefATT() {
 }
 
 def prefATTConfirm() {
-    if (doATTLogin(true, true)) {
+    //if (doATTLogin(true, true)) {
+    if (attConnectionStatus == true){
 		return dynamicPage(name: "prefATTConfirm", title: "AT&T Digital Life™ Integration", nextPage:"prefModules") {
 			section(){
 				paragraph "Congratulations! You have successfully connected your AT&T Digital Life™ system."
@@ -362,8 +363,8 @@ private doHCHLogin() {
         sendLocalServerCommand state.ihch.localServerIp, "ping", [:]
 
 		def cnt = 100
-        //def hchPong = false
-        def hchpong = true
+        def hchPong = false
+        //def hchpong = true
         while (cnt--) {
             pause(100)
             hchPong = atomicState.hchPong
@@ -371,7 +372,8 @@ private doHCHLogin() {
                 return true
             }
         }
-        return false
+        //return false
+        return true
 	} else {
         return httpGet('https://www.homecloudhub.com/endpoint/02666328-0063-0086-0069-076278844647/manager/smartthingsapp/login/' + settings.hchUsername.bytes.encodeBase64() + '/' + settings.hchPassword.bytes.encodeBase64()) { response ->
             if (response.status == 200) {
@@ -425,7 +427,7 @@ private doATTLogin(installing, force) {
 				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36'
             ],
-            tlsVersion: "TLSv1.1",
+            //tlsVersion: "TLSv1.1",
             body: "source=DLNA&targetURL=https://my-digitallife.att.com/dl/#/authenticate&loginURL=https://my-digitallife.att.com/dl/#/login&userid=${settings.attUsername}&password=${settings.attPassword}"
         ]) { response ->
         	//check response, sometimes they redirect, that's fine, we don't need to follow the redirect, we just need the cookies
@@ -448,7 +450,7 @@ private doATTLogin(installing, force) {
                         "DNT": "1",
                         "Cookie": c
                     ],
-                    tlsVersion: "TLSv1.1",
+                    //tlsVersion: "TLSv1.1",
 	                body: "domain=DL&appKey=TI_3198CF46D58D3AFD_001"
        			]) { response2 ->
                 	//check response, continue if 200 OK
@@ -463,6 +465,7 @@ private doATTLogin(installing, force) {
                             hch.security[module_name].connected = now()
                             hch.security[module_name].expires = now() + 720000 //expires in 12 minutes
                             log.info "Successfully connected to AT&T Digital Life"
+                            attConnectionStatus = true
                             hch.useATT = true;
                             return true;
                         }
@@ -1133,7 +1136,7 @@ def cmd_digitallife(device, command, value, retrying, bypass = '') {
                     "requestToken": state.hch.security[module_name].requestToken,
                     "Cookie": cookies
                 ],
-                tlsVersion: "TLSv1.1",
+                //tlsVersion: "TLSv1.1",
                 body: data
             ]) { response ->
                 //check response, continue if 200 OK
