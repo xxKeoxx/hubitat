@@ -18,7 +18,7 @@
  */
 
 metadata {
-	definition (name: "Hubitat Harmony_TV", namespace: "keo", author: "Keo") {
+	definition (name: "Hubitat Harmony_TV", namespace: "turlvo", author: "turlvo") {
         capability "Actuator"
 	capability "Switch"
 	capability "Refresh"
