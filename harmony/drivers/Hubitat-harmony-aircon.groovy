@@ -16,7 +16,7 @@
  */
 
 metadata {
-	definition (name: "Hubitat Harmony_Aircon", namespace: "keo", author: "Keo") {
+	definition (name: "Hubitat Harmony_Aircon", namespace: "turlvo", author: "turlvo") {
         capability "Actuator"
 	capability "Switch"
 	capability "Refresh"
