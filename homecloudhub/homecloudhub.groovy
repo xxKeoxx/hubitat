@@ -134,7 +134,7 @@ def prefHCH(params) {
                 }
             }           
         	section("Manual Configuration") {
-			    input("hchLocalServerIp", "text", title: "Enter the IP of your local server", required: true, defaultValue: "")
+			    input("hchLocalServerIp", "text", title: "Enter the IP of your local server", required: false, defaultValue: "")
             }
         } else {
             section(title: "", hidden: true) {
@@ -257,6 +257,7 @@ def prefATT() {
 
 def prefATTConfirm() {
     //if (doATTLogin(true, true)) {
+    doATTLogin(true, true)
     if (attConnectionStatus == true){
 		return dynamicPage(name: "prefATTConfirm", title: "AT&T Digital Life™ Integration", nextPage:"prefModules") {
 			section(){
@@ -362,7 +363,7 @@ private doHCHLogin() {
 		log.trace "Pinging local server at " + state.ihch.localServerIp
         sendLocalServerCommand state.ihch.localServerIp, "ping", [:]
 
-		def cnt = 100
+		def cnt = 50
         def hchPong = false
         //def hchpong = true
         while (cnt--) {
@@ -422,12 +423,12 @@ private doATTLogin(installing, force) {
         //perform the initial login, retrieve cookies
         return httpPost([
         	uri: "https://my-digitallife.att.com/tg_wam/login.do",
+            requestContentType: "application/x-www-form-urlencoded",
             headers: [
 				'Referer': 'https://my-digitallife.att.com/dl/',
-				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+                'contentType': "application/json",
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36'
-            ],
-            //tlsVersion: "TLSv1.1",
+            ],           
             body: "source=DLNA&targetURL=https://my-digitallife.att.com/dl/#/authenticate&loginURL=https://my-digitallife.att.com/dl/#/login&userid=${settings.attUsername}&password=${settings.attPassword}"
         ]) { response ->
         	//check response, sometimes they redirect, that's fine, we don't need to follow the redirect, we just need the cookies
@@ -443,17 +444,18 @@ private doATTLogin(installing, force) {
                 //using the cookies, retrieve the auth tokens
                 return httpPost([
 		       		uri: "https://my-digitallife.att.com/penguin/api/authtokens",
+                    requestContentType: "application/x-www-form-urlencoded; charset=utf-8",
                     headers: [
                         "Referer": "https://my-digitallife.att.com/dl",
-                        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+                        "contentType": "application/json",
                         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36",
                         "DNT": "1",
                         "Cookie": c
-                    ],
-                    //tlsVersion: "TLSv1.1",
+                    ],                              	    
 	                body: "domain=DL&appKey=TI_3198CF46D58D3AFD_001"
        			]) { response2 ->
                 	//check response, continue if 200 OK
+                    //log.trace response2.status
                 	if (response2.status == 200) {
                         if (response2.data && response2.data.content && response2.data.content.gateways && response2.data.content.gateways.length) {
                         	//save the cookies and tokens into the security descriptor
@@ -629,7 +631,7 @@ def initialize() {
 		}
 
 		//call home and tell them where to find us
-    	log.info "Endpoint is at " + apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}")
+    	log.info "Endpoint is at " + getLocalApiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}")
 		httpGet('https://www.homecloudhub.com/endpoint/02666328-0063-0086-0069-076278844647/manager/smartthingsapp/connect/' + state.hch.endpoint.bytes.encodeBase64() + '/' + apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}").bytes.encodeBase64())
 	}
     
@@ -748,34 +750,36 @@ def lanEventHandler(evt) {
     def description = evt.description
     def hub = evt?.hubId
 	def parsedEvent = parseLanMessage(description)
-	//log.trace "RECEIVED LAN EVENT: $parsedEvent"
-	
-	//discovery
+	//log.trace "parsedEvent = " + parseLanMessage(description)
+    //discovery
+    //evt.each { log.trace it }
 	if (parsedEvent.ssdpTerm && parsedEvent.ssdpTerm.contains(getLocalServerURN())) {
     	log.trace "DISCOVERY SUCCESSFUL"
         atomicState.hchLocalServerIp = convertHexToIP(parsedEvent.networkAddress)
 	}
     
     //ping response
-    if (parsedEvent.data && parsedEvent.data.service && (parsedEvent.data.service == "hch")) {
-	    def msg = parsedEvent.data
+    if (parsedEvent && parsedEvent.service && (parsedEvent.service == "hch")) {
+	    def msg = parsedEvent
         if (msg.result == "pong") {
         	//log in successful to local server
-            log.info "Successfully contacted local server"
+            //log.info "Successfully contacted local server"
 			atomicState.hchPong = true
         }   	
     }
-    if (parsedEvent.data && parsedEvent.data.event) {
-	    //log.trace "GOT LAN EVENT ${parsedEvent.data.event} and data ${parsedEvent.data.data}"
-        switch (parsedEvent.data.event) {
+    if (parsedEvent && parsedEvent.event) {
+    //parsedEvent.event = "init"
+    //if (parsedEvent) {
+	    log.trace "GOT LAN EVENT ${parsedEvent.event} and data ${parsedEvent.data}"
+        switch (parsedEvent.event) {
         	case "init":
                 sendLocalServerCommand state.hch.localServerIp, "init", [
                             server: getHubLanEndpoint(),
-                            modules: processSecurity([module: parsedEvent.data.data])
+                            modules: processSecurity([module: parsedEvent.data])
                         ]
 				break
-        	case "event":
-            	processEvent(parsedEvent.data.data);
+        	case "events":
+            	processEvent(parsedEvent.data);
                 break
         }
     }
@@ -856,8 +860,10 @@ mappings {
 /*                      EXTERNAL EVENT HANDLERS                        */
 /***********************************************************************/
 private processEvent(data) {
+    log.trace "processEvent(data) = " + data
 	if (!data) {
     	data = params
+        log.trace "processEvent(data) when null = $data"
     }
 
     def eventName = data?.event
@@ -997,6 +1003,7 @@ private processEvent(data) {
 }
 
 private processSecurity(data) {
+    log.trace "Running processSecurity"
 	if (!data) {
     	data = params
     }
