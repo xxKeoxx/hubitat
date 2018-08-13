@@ -64,7 +64,7 @@ var app = new function () {
                                     }
                                 }
                                 log({
-                                    info: 'Sending event to SmartThings: ' + (event.data.description || '')
+                                    info: 'Sending event to Automation Hub: ' + (event.data.description || '')
                                 });
                                 node.request.put({
                                         url: 'http://' + config.server.ip + ':' + config.server.port + '/event',
@@ -94,7 +94,7 @@ var app = new function () {
                     }
                 }
             } catch (e) {
-                error('Failed to send event to SmartThings: ' + e);
+                error('Failed to send event to Automation Hub: ' + e);
             }
         },
 

@@ -322,7 +322,7 @@ var exports = module.exports = new function () {
             }
         },
 
-        //rename/revalue device attributes to make them compatible to SmartThings
+        //rename/revalue device attributes to make them compatible to Automation Hub
         doSetDeviceAttribute = function (device, attribute, value) {
 
             switch (device.type) {
