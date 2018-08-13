@@ -12,7 +12,7 @@ Supported Features:
   AT&T Digital Life controll using Rule Machine
   Virtual Devices of supported Drivers. (See Device Drivers list)
   
-The homecloud hub app still needs to have items cleaned up.  This was the fastest port and I will be rewriteing it to make the interface less complicated to debug.  Since AT&T Digital life will be the only supported feature some of the complexity is no longer needed.
+**** NOTE: The homecloud hub app still needs to have items cleaned up.  This was the fastest port and I will be rewriteing it to make the interface less complicated to debug.  Since AT&T Digital life will be the only supported feature some of the complexity is no longer needed.
   
 Install NodeJS. You can follow these instructions to install Node JS 4.x or 5.x.
 https://nodejs.org/en/download/package-manager/
