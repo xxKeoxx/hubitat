@@ -3,16 +3,18 @@ Device Drivers:
 App:
   homecloudhub.groovy
   
-Installation:
-  Copy all Drivers into the Drivers Code section of hubitat.
-  Copy homecloudhub.groovy into the Apps Code section of hubitat.
-  Install the HomeCloudHub NodeJS server.
-  
 Supported Features:
   AT&T Digital Life controll using Rule Machine
   Virtual Devices of supported Drivers. (See Device Drivers list)
   
-**** NOTE: The homecloud hub app still needs to have items cleaned up.  This was the fastest port and I will be rewriteing it to make the interface less complicated to debug.  Since AT&T Digital life will be the only supported feature some of the complexity is no longer needed.
+**** NOTE: The homecloudhub app still needs to have items cleaned up.
+     This was the fastest port and I will be rewriteing it to make the interface less complicated to debug.  
+     Since AT&T Digital life will be the only supported feature some of the complexity is no longer needed.
+
+Installation:
+  Copy all Drivers into the Drivers Code section of hubitat.
+  Copy homecloudhub.groovy into the Apps Code section of hubitat.
+  Install the HomeCloudHub NodeJS server.
   
 Install NodeJS. You can follow these instructions to install Node JS 4.x or 5.x.
 https://nodejs.org/en/download/package-manager/
