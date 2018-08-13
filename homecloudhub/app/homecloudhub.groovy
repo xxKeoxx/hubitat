@@ -1086,7 +1086,7 @@ private processSecurity(data) {
 /***********************************************************************/
 /*                       EXTERNAL COMMAND PROXY                        */
 /***********************************************************************/
-/*def proxyCommand(device, command, value) {
+def proxyCommand(device, command, value) {
 	//child devices will use us to proxy things over to the homecloudhub.com service
 	def module = device.currentValue('module')
     try {
@@ -1105,9 +1105,9 @@ private processSecurity(data) {
             log.error 'Oh oh, something went wrong while requesting command ' + uri + ': ' + e
         }
     }
-    return(null
+    return(null)
 }
-*/
+
 
 
 
