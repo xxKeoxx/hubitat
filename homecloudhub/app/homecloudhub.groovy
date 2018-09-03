@@ -1,17 +1,12 @@
 /**
- *  Home Cloud Hub
+ *  ATTDL Interface
  *
- *  Copyright 2016 Adrian Caramaliu
  *
- *  NOTE: This application requires a local server connected to the same network as your SmartThings hub.
+ *  NOTE: This application requires a local server connected to the same network as your Automation hub.
  *        Find more info at https://github.com/ady624/HomeCloudHub
  *
- *  Many thanks to users Keo (https://community.smartthings.com/users/Keo) and swanny (https://community.smartthings.com/users/swanny)
- *  for providing both the drive (https://community.smartthings.com/t/integration-with-at-t-digital-life/4082) and the basic code example
- *  to get me started with SmartApps. Although most of Keo's original code is no longer in this application, it saved me time
- *  figuring out how to move around with the SmartApp, this being my first SmartApp to date. I actually bought the SmartThings hub
- *  for this integration alone (and ended up using it for other things too).
- *
+ *  Many thanks to Adrian Caramaliu who initally got this working on smartThings as well as many other developers on the hubitat forums
+ *  who helped me port it over.
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
  *
@@ -25,16 +20,6 @@
  *  Version history
  *
  *  v0.1.18.08.12 - Converted over to be used with hubitat.  Also removing support for IFTTT and myq.  Added additional child device AT&T_Digital_Life_Receiver
- *  v0.1.18.03.02 - SmartThings is now enforcing TLS 1.2 on all REST clients, DigitalLife is using old Symantec certificates that are not allowed by TLSv1.2. Also added support for automatic bypass.
- *  v0.1.18.01.16 - Lowered the wait time for SSDP response to 5s, because ST lowered the page rendering time out to 10s
- *  v0.1.17.06.13 - Lowered the wait time for SSDP response to 5s, because ST lowered the page rendering time out to 10s
- *  v0.1.16.06.21 - Added support for Instant, switch level is now 0/home, 1/stay, 2/instant, 3/away. Improved mode handling, replaced attribute "mode" with "digital-life-mode" as it was conflicting with the location mode
- *  v0.1.16.04.12 - Added support for AT&T Digital Life switch (switch is "off" when alarm is disarmed and "on" when the alarm is in stay/away/instant mode)
- *  v0.1.16.04.06b - Added support for switch level (sending event to set the level as well as the mode)
- *  v0.1.16.04.06 - Replaced Follow Location Mode with Sync Location Mode and added Sync Smart Home Monitor option for AT&T. Thank you Keo for the idea
- *  v0.1.16.03.28 - Added Follow Location Mode option for AT&T
- *  v0.1.16.03.23 - Updated location sync method
- *  v0.1.16.03.22 - Initial beta release
  *
 **/
 
@@ -48,12 +33,6 @@ definition(
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
     iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
     oauth: true)
-/*
-private getMyQAppId() {
-//    return 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB/i'
-	return 'JVM/G9Nwih5BwKgNCjLxiFUQxQijAebyyg8QUHr7JOrP+tuPb8iHfRHKwTmDzHOu'
-}
-*/
 
 private getLocalServerURN() {
 	return "urn:schemas-upnp-org:device:HomeCloudHubLocalServer:624"
@@ -66,10 +45,6 @@ preferences {
     page(name: "prefModules", title: "Home Cloud Hub Modules")
 	page(name: "prefATT", title: "AT&T Digital Life™ Integration")
 	page(name: "prefATTConfirm", title: "AT&T Digital Life™ Integration")
-	//page(name: "prefMyQ", title: "MyQ™ Integration")
-	//page(name: "prefMyQConfirm", title: "MyQ™ Integration")
-	//page(name: "prefIFTTT", title: "IFTTT™ Integration")
-	//page(name: "prefIFTTTConfirm", title: "IFTTT™ Integration")
 }
 
 
@@ -91,18 +66,6 @@ def prefWelcome() {
                  description: "Select this if you have already installed a local server in your network",
                  state: state.ihch.useLocalServer ? "complete" : null)
         }
-        
-/*
-        section() {
-            href(name: "href",
-                 title: "Use the Home Cloud Hub service",
-                 required: false,
-                 params: [next: true, hchLocal: false],
-                 page: "prefHCH",
-                 description: "Select this if you have an account with www.homecloudhub.com",
-                 state: !state.ihch.useLocalServer ? "complete" : null)
-        }
-*/
     }
 }
 
@@ -142,22 +105,7 @@ def prefHCH(params) {
 			    input("hchLocalServerIp", "text", title: "Enter the IP of your local server", required: false, defaultValue: "")
                 input("hchMacAddress", "string", title:"Enter the MAC Address of your nodejs server", defaultValue: "", required: true)
             }
-        } /*else {
-            section(title: "", hidden: true) {
-                paragraph "Create a Home Cloud Hub account and enter your credentials below"
-                href(name: "hrefNotRequired",
-                     title: "Home Cloud Hub registration",
-                     required: false,
-                     style: "external",
-                     url: "http://www.homecloudhub.com/",
-                     description: "tap to create an account"
-                    )
-            }
-            section("Login Credentials"){
-                input("hchUsername", "email", title: "Username", description: "Your Home Cloud Hub login")
-                input("hchPassword", "password", title: "Password", description: "Your password")
-            }
-		} */
+        }
     }
 }
 
@@ -178,11 +126,6 @@ def prefModulesPrepare(params) {
       log.trace "HERE 1"
 	    //prefill states for the modules
     	doATTLogin(true, true)
-      //log.trace "HERE 2"
-    	//doMyQLogin(true, true)
-      //log.trace "HERE 3"
-    	//doIFTTTLogin(true, true)
-      //log.trace "HERE 4"
 		return prefModules()
 	} else {
     	if (state.ihch.useLocalServer) {
@@ -191,13 +134,7 @@ def prefModulesPrepare(params) {
 					paragraph "Sorry, your local server does not seem to respond at ${state.ihch.localServerIp}."
 				}
 	        }
-        } /*else {
-			return dynamicPage(name: "prefModulesPrepare",  title: "Error connecting to Home Cloud Hub") {
-				section(){
-					paragraph "Sorry, the credentials you provided for Home Cloud Hub are invalid. Please go back and try again."
-				}
-	        }
-        }*/
+        } 
     }
 }
 
@@ -214,25 +151,7 @@ def prefModules() {
                  description: "Enable integration with AT&T Digital Life™",
                  state: state.ihch.useATT ? "complete" : null)
         }
- /*       section() {
-            href(name: "href",
-                 title: "MyQ™",
-                 required: false,
-                 page: "prefMyQ",
-                 description: "Enable integration with MyQ™",
-                 state: state.ihch.useMyQ ? "complete" : null)
-        }
-        section() {
-            href(name: "href",
-                 title: "IFTTT™",
-                 required: false,
-                 page: "prefIFTTT",
-                 description: "Enable integration with IFTTT™",
-                 state: state.ihch.useIFTTT ? "complete" : null)
-        }*/
-
-    }
-    
+    }    
 }
 
 def prefATT() {
@@ -248,9 +167,9 @@ def prefATT() {
             }
             section("Permissions") {
 				input("attControllable", "bool", title: "Control AT&T Digital Life", required: true, defaultValue: true)
-				input("attAutoBypass", "bool", title: "Automatically bypass", required: false, defaultValue: true)
-				input("attSyncLocationMode", "bool", title: "Sync Location Mode", required: true, defaultValue: true)
-				input("attSyncSmartHomeMonitor", "bool", title: "Sync Smart Home Monitor", required: true, defaultValue: true)
+				input("attAutoBypass", "bool", title: "Automatically bypass", required: false, defaultValue: false)
+				//input("attSyncLocationMode", "bool", title: "Sync Location Mode", required: true, defaultValue: false)
+				//input("attSyncSmartHomeMonitor", "bool", title: "Sync Smart Home Monitor", required: true, defaultValue: false)
             }
     	}
 	} else {
@@ -280,82 +199,6 @@ def prefATTConfirm() {
     }
 }
 
-/*def prefMyQ() {
-    return dynamicPage(name: "prefMyQ", title: "MyQ™ Integration", nextPage:"prefMyQConfirm") {
-        section() {
-            paragraph "Home Cloud Hub can optionally integrate your MyQ™ garage door system into SmartThings."
-            paragraph "NOTE: Since MyQ™ does not support OAuth, your username and password are required for integration. They will be stored in your personal instance of the application on SmartThings' servers and are NEVER shared with anyone, not even with Home Cloud Hub. The credentials are used to generate a temporary token that is shared with Home Cloud Hub."
-        }
-        section("Login Credentials"){
-            input("myqUsername", "email", title: "Username", description: "Your MyQ™ login", required: false)
-            input("myqPassword", "password", title: "Password", description: "Your password", required: false)
-        }
-        section("Permissions") {
-            input("myqControllable", "bool", title: "Control MyQ", required: true, defaultValue: true)
-        }
-    }
-}
-
-def prefMyQConfirm() {
-    if (doMyQLogin(true, true)) {
-		return dynamicPage(name: "prefMyQConfirm", title: "MyQ™ Integration", nextPage:"prefModules") {
-			section(){
-				paragraph "Congratulations! You have successfully connected your MyQ™ system."
-			}
-    	}
-	} else {
-		return dynamicPage(name: "prefMyQConfirm",  title: "MyQ™ Integration") {
-			section(){
-				paragraph "Sorry, the credentials you provided for MyQ™ are invalid. Please go back and try again."
-			}
-        }
-    }
-}
-
-def prefIFTTT() {
-    return dynamicPage(name: "prefIFTTT", title: "IFTTT™ Integration", nextPage:"prefIFTTTConfirm") {
-        section() {
-            paragraph "Home Cloud Hub can optionally integrate with IFTTT™ (IF This Then That) via the Maker channel, triggering immediate events to IFTTT™. To enable IFTTT™, please login to your IFTTT™ account and connect the Maker channel. Youu will be provided with a key that needs to be entered below"
-            href(name: "hrefNotRequired",
-                 title: "IFTTT Maker channel",
-                 required: false,
-                 style: "external",
-                 url: "https://www.ifttt.com/maker",
-                 description: "tap to go to IFTTT™ and connect the Maker channel"
-                )
-        }
-        section("IFTTT Maker key"){
-            input("iftttKey", "email", title: "Key", description: "Your IFTTT Maker key", required: false)
-        }
-    }
-}
-
-def prefIFTTTConfirm() {
-    if (doIFTTTLogin(true, true)) {
-		return dynamicPage(name: "prefIFTTTConfirm", title: "IFTTT™ Integration", nextPage:"prefModules") {
-			section(){
-				paragraph "Congratulations! You have successfully connected your IFTTT™ system."
-			}
-    	}
-	} else {
-		return dynamicPage(name: "prefIFTTTConfirm",  title: "IFTTT™ Integration") {
-			section(){
-				paragraph "Sorry, the credentials you provided for IFTTT™ are invalid. Please go back and try again."
-			}
-        }
-    }
-}
-*/
-
-
-
-
-
-
-
-
-
-
 
 /***********************************************************************/
 /*                           LOGIN PROCEDURES                          */
@@ -364,42 +207,25 @@ def prefIFTTTConfirm() {
 /***********************************************************************/
 private doHCHLogin() {
 	try {
-	if (state.ihch.useLocalServer) {
-        atomicState.hchPong = false
+		if (state.ihch.useLocalServer) {
+        	atomicState.hchPong = false
 
-		log.trace "Pinging local server at " + state.ihch.localServerIp
-        sendLocalServerCommand state.ihch.localServerIp, "ping", [:]
+			log.trace "Pinging local server at " + state.ihch.localServerIp
+        	sendLocalServerCommand state.ihch.localServerIp, "ping", [:]
 
-		def cnt = 50
-        def hchPong = false
-        //def hchpong = true
-        while (cnt--) {
-            pause(100)
-            hchPong = atomicState.hchPong
-            if (hchPong) {
-                return true
-            }
-        }
-        //return false
-        return true
-	} /*else {
-        return httpGet('https://www.homecloudhub.com/endpoint/02666328-0063-0086-0069-076278844647/manager/smartthingsapp/login/' + settings.hchUsername.bytes.encodeBase64() + '/' + settings.hchPassword.bytes.encodeBase64()) { response ->
-            if (response.status == 200) {
-                if (response.data.result && (response.data.result == "success") && response.data.data && response.data.data.endpoint) {
-                    state.ihch.endpoint = response.data.data.endpoint
-                    state.ihch.connected = now()
-                    if (!state.ihch.security) {
-                        state.ihch.security = [:]
-                    }
-                    return true
-                } else {
-                    return false
-                }
-            } else {
-                return false
-            }
-        }
-	}*/
+			def cnt = 50
+        	def hchPong = false
+        	//def hchpong = true
+        	while (cnt--) {
+            	pause(100)
+            	hchPong = atomicState.hchPong
+            	if (hchPong) {
+                	return true
+            	}
+        	}
+        	//return false
+        	return true
+		}
 	} catch (e) { log.error "Error logging in to HCH...", e }
 }
 
@@ -426,7 +252,7 @@ private doATTLogin(installing, force) {
     ]
     //check if the AT&T Digital Life module is enabled
 	if (hch.security[module_name].enabled) {
-    	log.info "Logging in to AT&T Digital Life..."
+    	log.trace "Logging in to AT&T Digital Life..."
         //perform the initial login, retrieve cookies
         return httpPost([
         	uri: "https://my-digitallife.att.com/tg_wam/login.do",
@@ -491,105 +317,6 @@ private doATTLogin(installing, force) {
     } catch(e) { log.error "Error logging in to AT&T", e }
 }
 
-/***********************************************************************/
-/* Login to MyQ                                                        */
-/***********************************************************************/
-/*def doMyQLogin(installing, force) {
-return;
-	try {
-	def module_name = 'myq';
-    //if cookies haven't expired and unless we need to force a login, we report all is pink
-    if (!installing && !force && state.hch.security[module_name] && state.hch.security[module_name].connected && (state.hch.security[module_name].expires > now())) {
-		log.info "Reusing previously login for MyQ"
-		return true;
-    }
-    //setup our security descriptor
-    def hch = (installing ? state.ihch : state.hch)
-    hch.useMyQ = false
-    hch.security[module_name] = [
-    	'enabled': !!(settings.myqUsername && settings.myqPassword),
-        'controllable': settings.myqControllable,
-        'connected': false
-    ]
-    if (hch.security[module_name].enabled) {
-    	log.info "Logging in to MyQ..."
-        //perform the login, retrieve token
-        def myQAppId = getMyQAppId()
-        //return httpGet("https://myqexternal.myqdevice.com/Membership/ValidateUserWithCulture?appId=${myQAppId}&securityToken=null&username=${settings.myqUsername}&password=${settings.myqPassword}&culture=en") { response ->
-        return httpPost([
-        	uri: "https://myqexternal.myqdevice.com",
-            path:"/api/v4/User/Validate",
-            headers: [
-            	"BrandId": "2",
-                "ApiVersion": "4.1",
-                "User-Agent": "Chamberlain/3.73 (iPhone; iOS 10.1; Scale/2.00)",
-                MyQApplicationId: "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx"
-            ],
-            contentType: "text/plain",
-            body: [
-            	"username": "ady624@gmail.com",
-                "password": "Adrian_625"
-			]
-		]) { response ->
-        //return httpGet([uri: "https://myqexternal.myqdevice.com", path:"/api/user/validate", query: [appId: myQAppId, username: settings.myqUsername, password: settings.myqPassword]]) { response ->
-			//check response, continue if 200 OK
-            def s = "";
- 			for (int i = 0; i < 5; i++) {
-            	s = s + (char) response.data.read();
-         	}            
-            log.trace response.status
-            log.trace s
-       		if (response.status == 200) {
-				if (response.data && response.data.SecurityToken) {
-                    hch.security[module_name].securityToken = response.data.SecurityToken
-                    hch.security[module_name].connected = now()
-                	hch.security[module_name].expires = now() + 5000 //expires in 5 minutes
-					log.info "Successfully connected to MyQ"
-                    hch.useMyQ = true
-                	return true;
-                }
-			}
-            return false;
- 		}
-    } else {
-		return true;
-	}
-    } catch(e) { log.error "Error logging in to MyQ", e }
-}
-*/
-/***********************************************************************/
-/* Login to IFTTT                                                      */
-/***********************************************************************/
-/*def doIFTTTLogin(installing, force) {
-	try {
-    //setup our security descriptor
-    def hch = (installing ? state.ihch : state.hch)
-    hch.useIFTTT = false
-    if (settings.iftttKey) {
-    	//verify the key
-        return httpGet("https://maker.ifttt.com/trigger/test/with/key/" + settings.iftttKey) { response ->
-			if (response.status == 200) {
-				if (response.data == "Congratulations! You've fired the test event")
-				    hch.useIFTTT = true
-                	return true;
-			}
-            return false;
- 		}
-    } else {
-		return true;
-	}
-    } catch(e) { log.error "Error logging in to IFTTT", e }
-}
-*/
-
-
-
-
-
-
-
-
-
 
 
 /***********************************************************************/
@@ -618,7 +345,7 @@ def initialize() {
 		addChildDevice("Keo", "AT&T_Digital_Life_Receiver", hchMacAddress)
     }catch(IllegalArgumentException e){
         log.info "AT&T_Digital_Life_Receiver already exists"
-        log.info e
+        //log.info e
     }
     state.installed = true    
     //get the installing hch state
@@ -634,26 +361,10 @@ def initialize() {
         	server: getHubLanEndpoint(),
             modules: state.hch.security
         ]
-    } /*else {
-    	//in cloud mode, we need an access token for the endpoint
-		if (!state.accessToken) {
-	    	//make sure OAuth is enabled in the SmartApp Settings if the next line gives you an error
-            try {
-	        	createAccessToken()
-            } catch(e) {
-            	log.error "Could not create Access Token for app. Please go to App Settings and enable/create OAuth Client/Secret pair."
-            }
-		}
-
-		//call home and tell them where to find us
-    	log.info "Endpoint is at " + getLocalApiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}")
-		httpGet('https://www.homecloudhub.com/endpoint/02666328-0063-0086-0069-076278844647/manager/smartthingsapp/connect/' + state.hch.endpoint.bytes.encodeBase64() + '/' + apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}").bytes.encodeBase64())
-	}*/
+    }
     
 	state.hch.usesATT = !!(settings.attUsername || settings.attPassword)
-	//state.hch.usesIFTTT = !!settings.iftttKey
-	//state.hch.usesMyQ = !!(settings.myqUsername || settings.myqPassword)
-    
+
     if ((state.hch.usesATT) && (settings.attControllable)) {
     	if (settings.attSyncLocationMode) {
 	        /* subscribe to mode changes to allow sync with AT&T Digital Life */
@@ -678,10 +389,6 @@ private Integer convertHexToInt(hex) {
 private String convertHexToIP(hex) {
 	[convertHexToInt(hex[0..1]),convertHexToInt(hex[2..3]),convertHexToInt(hex[4..5]),convertHexToInt(hex[6..7])].join(".")
 }
-
-
-
-
 
 
 /***********************************************************************/
@@ -848,13 +555,6 @@ private getHubLanEndpoint() {
 
 
 
-
-
-
-
-
-
-
 /***********************************************************************/
 /*                      EXTERNAL EVENT MAPPINGS                        */
 /***********************************************************************/
@@ -871,15 +571,6 @@ mappings {
         ]
     }
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1018,16 +709,6 @@ private processEvent(data) {
         	}
     	}
     }
-    /*
-    if (state.hch.usesIFTTT && (eventName == 'update') && deviceModule && deviceId && eventName && eventValue && (eventValue != 'undefined') && !eventValue.contains("-ack") && !eventValue.contains("token")) {
-    	//we need to proxy the event to IFTTT
-        try {
-        	def trigger = (deviceModule + '-' + deviceId + '-' + eventValue).replace(" ", "-").toLowerCase();
-            log.info "Sending event #${trigger} to IFTTT"
-			httpGet("https://maker.ifttt.com/trigger/${trigger}/with/key/" + settings.iftttKey);
-        } catch(e) {
-        }
-    }*/
 }
 
 private processSecurity(data) {
@@ -1075,14 +756,6 @@ private processSecurity(data) {
 
 
 
-
-
-
-
-
-
-
-
 /***********************************************************************/
 /*                       EXTERNAL COMMAND PROXY                        */
 /***********************************************************************/
@@ -1107,15 +780,6 @@ def proxyCommand(device, command, value) {
     }
     return(null)
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1194,86 +858,3 @@ def cmd_digitallife(device, command, value, retrying, bypass = '') {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-/***********************************************************************/
-/*                          MYQ MODULE COMMANDS                        */
-/***********************************************************************/
-/*def cmd_myq(device, command, value, retry) {
-	//are we allowed to use MyQ?
-   	def module_name = "myq"
-	if (!state.hch.usesMyQ || !(state.hch.security && state.hch.security[module_name] && state.hch.security[module_name].controllable)) {
-    	//we are either not using this module or we can't controll it
-    	return "No permission to control MyQ"
-    }
-	if (!doMyQLogin(false, retry)) {
-    	log.error "Failed sending command to MyQ because we could not connect"
-    }
-	//using the cookies, retrieve the auth tokens
-    def attrName = null
-    def attrValue = null
-    switch (device.currentValue("type")) {
-    	case "GarageDoorOpener":
-        	switch (command) {
-            	case "open":
-                	attrName = "desireddoorstate"
-                	attrValue = 1
-                	break;
-            	case "close":
-                	attrName = "desireddoorstate"
-                	attrValue = 0
-                	break;
-            }
-        	break;
-    }
-    def result = false
-    def message = ""
-    if (attrName && attrValue != null) {
-    	try {
-            result = httpPutJson([
-                uri: "https://myqexternal.myqdevice.com/api/v4/deviceAttribute/putDeviceAttribute?appId=" + getMyQAppId() + "&securityToken=${state.hch.security[module_name].securityToken}",
-                headers: [
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"
-                ],
-                body: [
-					ApplicationId: getMyQAppId(),
-					SecurityToken: state.hch.security[module_name].securityToken,
-                    MyQDeviceId: device.currentValue('id'),
-					AttributeName: attrName,
-                    AttributeValue: attrValue
-                ]
-            ]) { response ->
-                //check response, continue if 200 OK
-                message = response.data
-                if ((response.status == 200) && response.data && (response.data.ReturnCode == 0)) {
-                	return true
-                }
-                return false
-            }
-            if (result) {
-            	return "Successfuly sent command to MyQ: device [${device}] command [${command}] value [${value}] result [${message}]"
-            } else {
-            	//if we failed and this was already a retry, give up
-            	if (retry) {
-		            return "Failed sending command to MyQ: ${message}"
-                }
-            	//we failed the first time, let's retry
-                return "cmd_${module_name}"(device, command, value, true)
-            }
-		} catch(e) {
-    		message = "Failed sending command to MyQ: ${e}, falling back on HCH"
-            sendLocalServerCommand state.hch.localServerIp, "cmd", [module: module_name, deviceId: device.currentValue('id'), command: command]
-        }
-    }
-    return message
-}*/
