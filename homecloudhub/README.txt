@@ -19,6 +19,8 @@ Installation:
 Install NodeJS. You can follow these instructions to install Node JS 4.x or 5.x.
 https://nodejs.org/en/download/package-manager/
 
+IMPORTANT: Currently there is something in nodejs 10 that does not work with this app.  Nodejs 7 and 8 have been tested and certified to work with this app.
+
 On your linux machine, create a folder /var/node (if it doesn't exist yet). Download the homecloudhub.local folder onto your linux machine. I use this on a Raspberry Pi running Raspbian. Install necessary modules:
 
 sudo npm install -g request
