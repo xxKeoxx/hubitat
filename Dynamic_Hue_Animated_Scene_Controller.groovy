@@ -3,6 +3,7 @@ metadata {
         capability "Switch"
         capability "Refresh"
         
+        command "setSceneAndZone", ["string"]
         command "setSceneName", ["string"]
         command "setZoneName", ["string"]
     }
@@ -54,6 +55,26 @@ def setZoneName(String newZoneName) {
     log.debug "Setting new Zone Name: ${newZoneName}"
     hueZone = newZoneName
     activateScene()
+}
+
+def setSceneAndZone(String jsonInput) {
+    log.debug "Setting Scene and Zone with JSON input: ${jsonInput}"
+    
+    try {
+        def parsedJson = new groovy.json.JsonSlurper().parseText(jsonInput)
+        def newZoneName = parsedJson.zone
+        def newSceneName = parsedJson.scene
+        
+        if (newZoneName) {
+            setZoneName(newZoneName)
+        }
+        if (newSceneName) {
+            setSceneName(newSceneName)
+        }
+        
+    } catch (Exception e) {
+        log.error "Error parsing JSON input: ${e.message}"
+    }
 }
 
 def activateScene() {
