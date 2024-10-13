@@ -3,6 +3,7 @@ metadata {
         capability "Switch"
         capability "Refresh"
         
+        command "activateViaJson", ["string"]
         command "setSceneName", ["string"]
         command "setZoneName", ["string"]
     }
@@ -44,33 +45,49 @@ def refresh() {
     // Placeholder for future refresh functionality
 }
 
-def setSceneName(String newSceneName) {
-    log.debug "Setting new Scene Name: ${newSceneName}"
-    sceneName = newSceneName
-    activateScene()
+def activateViaJson(String jsonInput) {
+    log.debug "Setting Scene and Zone with JSON input: ${jsonInput}"
+    
+    try {
+        def parsedJson = new groovy.json.JsonSlurper().parseText(jsonInput)
+        def newZoneName = parsedJson.zone
+        def newSceneName = parsedJson.scene
+        def action = parsedJson.action
+        
+        if (!newZoneName || !newSceneName) {
+            log.error "Zone or Scene not provided in the JSON input"
+            return
+        }
+
+        // Now activate or deactivate the scene based on the action
+        if (action == "on") {
+            activateSceneById(newZoneName, newSceneName)
+        } else if (action == "off") {
+            deactivateZone(newZoneName)
+        } else {
+            log.error "Invalid action provided: ${action}. Expected 'on' or 'off'."
+        }
+        
+    } catch (Exception e) {
+        log.error "Error parsing JSON input: ${e.message}"
+    }
 }
 
-def setZoneName(String newZoneName) {
-    log.debug "Setting new Zone Name: ${newZoneName}"
-    hueZone = newZoneName
-    activateScene()
-}
-
-def activateScene() {
-    if (!hueIp || !hueZone || !sceneName || !apiKey) {
-        log.error "Hue IP, Zone, Scene, or API key is not set. Please configure the device."
+def activateSceneById(zoneName, sceneName) {
+    if (!hueIp || !apiKey) {
+        log.error "Hue IP or API key is not set. Please configure the device."
         return
     }
     
-    def zoneId = getZoneId(hueZone)
+    def zoneId = getZoneId(zoneName)
     if (!zoneId) {
-        log.error "Failed to find Hue zone with name: ${hueZone}"
+        log.error "Failed to get zone ID for zone: ${zoneName}"
         return
     }
-    
+
     def sceneId = getSceneId(zoneId, sceneName)
     if (!sceneId) {
-        log.error "Failed to find scene with name: ${sceneName} in zone: ${hueZone}"
+        log.error "Failed to get scene ID for scene: ${sceneName} in zone: ${zoneName}"
         return
     }
     
@@ -86,7 +103,7 @@ def activateScene() {
         
         httpPut(params) { resp ->
             if (resp.status == 200) {
-                log.debug "Activated scene: ${sceneName} in zone: ${hueZone}"
+                log.debug "Successfully activated scene: ${sceneName} in zone: ${zoneName}"
             } else {
                 log.error "Failed to activate scene: ${sceneName}. Response: ${resp.status}"
             }
@@ -96,18 +113,24 @@ def activateScene() {
     }
 }
 
-def deactivateZone() {
+def deactivateZone(zoneName = null) {
+    // Use the passed-in zoneName if provided; otherwise, fall back to the configured zone in preferences
+    def hueZone = zoneName ?: hueZone
+
+    // Check if the required values (hueIp, hueZone, apiKey) are set
     if (!hueIp || !hueZone || !apiKey) {
         log.error "Hue IP, Zone, or API key is not set. Please configure the device."
         return
     }
     
+    // Retrieve the zone ID
     def zoneId = getZoneId(hueZone)
     if (!zoneId) {
         log.error "Failed to find Hue zone with name: ${hueZone}"
         return
     }
     
+    // Formulate the URL and request body to turn off the lights
     def url = "http://${hueIp}/api/${apiKey}/groups/${zoneId}/action"
     def body = [on: false]
     
@@ -118,6 +141,7 @@ def deactivateZone() {
             contentType: "application/json"
         ]
         
+        // Send the HTTP PUT request
         httpPut(params) { resp ->
             if (resp.status == 200) {
                 log.debug "Turned off the lights in zone: ${hueZone}"
